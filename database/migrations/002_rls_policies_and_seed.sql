@@ -137,16 +137,16 @@ ON CONFLICT DO NOTHING;
 
 -- SEED DATA: Wellness Categories
 INSERT INTO wellness_categories (id, name) VALUES
-('w1111111-1111-1111-1111-111111111111', 'Cycle Basics'),
-('w2222222-2222-2222-2222-222222222222', 'Period Hygiene'),
-('w3333333-3333-3333-3333-333333333333', 'PMS & Cramp Relief'),
-('w4444444-4444-4444-4444-444444444444', 'Myth vs Fact')
+('f1111111-1111-1111-1111-111111111111', 'Cycle Basics'),
+('f2222222-2222-2222-2222-222222222222', 'Period Hygiene'),
+('f3333333-3333-3333-3333-333333333333', 'PMS & Cramp Relief'),
+('f4444444-4444-4444-4444-444444444444', 'Myth vs Fact')
 ON CONFLICT DO NOTHING;
 
 -- SEED DATA: Wellness Articles
 INSERT INTO wellness_articles (title, category_id, content, status) VALUES
-('Understanding Your Menstrual Cycle Phases', 'w1111111-1111-1111-1111-111111111111', 'The menstrual cycle is divided into four main phases: the menstrual phase, follicular phase, ovulation, and luteal phase. Understanding each phase helps you tune into body changes, energy levels, and mood shifts.', 'PUBLISHED'),
-('Best Practices for Period Hygiene', 'w2222222-2222-2222-2222-222222222222', 'Change sanitary products regularly (every 4-6 hours for pads, 4-8 hours for tampons). Wash gently with water and mild pH-balanced cleanser. Always wash from front to back to prevent bacterial transfer.', 'PUBLISHED'),
-('Natural Ways to Relieve Menstrual Cramps', 'w3333333-3333-3333-3333-333333333333', 'Heat therapy, gentle stretching, stay hydrated, drink chamomile tea, and ensure adequate magnesium intake through foods like dark chocolate, nuts, and leafy greens.', 'PUBLISHED'),
-('Myth vs Fact: Can You Exercise During Your Period?', 'w4444444-4444-4444-4444-444444444444', 'MYTH: You should avoid all exercise during your period.\nFACT: Light to moderate exercise such as walking, yoga, and swimming can actually reduce cramps, boost mood, and improve circulation!', 'PUBLISHED')
+('Understanding Your Menstrual Cycle Phases', 'f1111111-1111-1111-1111-111111111111', 'The menstrual cycle is divided into four main phases: the menstrual phase, follicular phase, ovulation, and luteal phase. Understanding each phase helps you tune into body changes, energy levels, and mood shifts.', 'PUBLISHED'),
+('Best Practices for Period Hygiene', 'f2222222-2222-2222-2222-222222222222', 'Change sanitary products regularly (every 4-6 hours for pads, 4-8 hours for tampons). Wash gently with water and mild pH-balanced cleanser. Always wash from front to back to prevent bacterial transfer.', 'PUBLISHED'),
+('Natural Ways to Relieve Menstrual Cramps', 'f3333333-3333-3333-3333-333333333333', 'Heat therapy, gentle stretching, stay hydrated, drink chamomile tea, and ensure adequate magnesium intake through foods like dark chocolate, nuts, and leafy greens.', 'PUBLISHED'),
+('Myth vs Fact: Can You Exercise During Your Period?', 'f4444444-4444-4444-4444-444444444444', 'MYTH: You should avoid all exercise during your period.\nFACT: Light to moderate exercise such as walking, yoga, and swimming can actually reduce cramps, boost mood, and improve circulation!', 'PUBLISHED')
 ON CONFLICT DO NOTHING;
