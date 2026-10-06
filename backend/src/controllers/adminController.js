@@ -105,6 +105,15 @@ const createProduct = async (req, res, next) => {
       metadata: { sku, price }
     }]);
 
+    // Record Store Notification in Database
+    try {
+      await supabase.from('notifications').insert([{
+        title: 'New Store Arrival! 🛍️',
+        body: `${name} is now available in CycleCare Store at ₹${discount_price || price}!`,
+        type: 'STORE_PRODUCT_ADDED'
+      }]);
+    } catch (_) {}
+
     res.status(201).json({ success: true, message: 'Product created successfully', product: data });
   } catch (err) {
     next(err);

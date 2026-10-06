@@ -52,6 +52,7 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="com.cyclecare.ACTION_TRIGGER_NOTIFICATION" />
+                <action android:name="com.cyclecare.ACTION_STORE_PRODUCT_ADDED" />
             </intent-filter>
         </receiver>
 
