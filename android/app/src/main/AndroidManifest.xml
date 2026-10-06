@@ -73,6 +73,24 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".partner.DeliveryAgentActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="cyclecare" android:host="delivery" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".partner.OrderTrackingActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="cyclecare" android:host="order" />
+            </intent-filter>
+        </activity>
+
         <!-- Firebase Cloud Messaging Service -->
         <service
             android:name=".notifications.CycleCareMessagingService"

@@ -104,11 +104,31 @@ public class LoginActivity extends AppCompatActivity {
 
         btnLogin.setOnClickListener(v -> performLogin());
 
+        Button btnDemoDelivery = findViewById(R.id.btn_demo_delivery_login);
+        btnDemoDelivery.setOnClickListener(v -> performDeliveryLogin());
+
         tvGoRegister.setOnClickListener(v -> {
             startActivity(new Intent(LoginActivity.this, RegisterActivity.class));
             overridePendingTransition(R.anim.slide_in_right, R.anim.fade_in);
             finish();
         });
+    }
+
+    private void performDeliveryLogin() {
+        etEmail.setText("delivery.demo@cyclecare.app");
+        etPassword.setText("CycleCareDemo123!");
+        
+        // Mocking login for delivery agent
+        SharedPreferences prefs = getSharedPreferences("cyclecare_prefs", MODE_PRIVATE);
+        prefs.edit()
+                .putString("jwt_token", "demo_delivery_jwt_token")
+                .putString("user_name", "Delivery Agent")
+                .apply();
+
+        Intent intent = new Intent(LoginActivity.this, com.cyclecare.partner.DeliveryAgentActivity.class);
+        startActivity(intent);
+        overridePendingTransition(R.anim.slide_in_right, R.anim.fade_in);
+        finish();
     }
 
     /**

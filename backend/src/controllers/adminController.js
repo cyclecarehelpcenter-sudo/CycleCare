@@ -222,6 +222,20 @@ const getAuditLogs = async (req, res, next) => {
   }
 };
 
+const getAdminDeliveries = async (req, res, next) => {
+  try {
+    const { data: deliveries, error } = await supabase
+      .from('deliveries')
+      .select('*, orders(*), delivery_agents(*), delivery_live_locations(*)')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    res.json({ success: true, deliveries: deliveries || [] });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getUsers,
@@ -232,5 +246,6 @@ module.exports = {
   deleteProduct,
   getAdminOrders,
   updateOrderStatus,
-  getAuditLogs
+  getAuditLogs,
+  getAdminDeliveries
 };

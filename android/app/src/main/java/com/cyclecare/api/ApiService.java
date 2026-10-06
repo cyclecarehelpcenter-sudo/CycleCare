@@ -120,4 +120,32 @@ public interface ApiService {
 
     @POST("partners/{id}/care-package")
     Call<Map<String, Object>> createCarePackage(@Path("id") String connectionId, @Body Map<String, Object> body);
+
+    // Delivery Endpoints
+    @GET("delivery/dashboard")
+    Call<Map<String, Object>> getDeliveryDashboard();
+
+    @POST("delivery/{id}/accept")
+    Call<Map<String, Object>> acceptDelivery(@Path("id") String id);
+
+    @POST("delivery/{id}/pickup")
+    Call<Map<String, Object>> pickupDelivery(@Path("id") String id);
+
+    @POST("delivery/{id}/start")
+    Call<Map<String, Object>> startDelivery(@Path("id") String id);
+
+    @POST("delivery/{id}/simulate")
+    Call<Map<String, Object>> simulateDelivery(@Path("id") String id, @Query("step") int step);
+
+    @POST("delivery/{id}/arrive")
+    Call<Map<String, Object>> arriveDelivery(@Path("id") String id);
+
+    @POST("delivery/{id}/complete")
+    Call<Map<String, Object>> completeDelivery(@Path("id") String id, @Body Map<String, Object> body);
+
+    @GET("delivery/order/{orderId}")
+    Call<Map<String, Object>> getOrderTracking(@Path("orderId") String orderId);
+
+    @POST("delivery/demo/reset")
+    Call<Map<String, Object>> resetDemoDelivery();
 }

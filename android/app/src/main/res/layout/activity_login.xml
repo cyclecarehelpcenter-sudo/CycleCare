@@ -191,12 +191,25 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:layout_marginBottom="32dp"
+            android:layout_marginBottom="16dp"
             android:padding="10dp"
             android:text="Don't have an account? Create account"
             android:textColor="@color/colorPrimary"
             android:textSize="14sp"
             android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btn_demo_delivery_login"
+            android:layout_width="wrap_content"
+            android:layout_height="52dp"
+            android:layout_marginBottom="32dp"
+            android:background="@drawable/neu_input"
+            android:paddingHorizontal="24dp"
+            android:text="🚴 Demo Delivery Agent Mode"
+            android:textColor="#334155"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
 
     </LinearLayout>
 </ScrollView>

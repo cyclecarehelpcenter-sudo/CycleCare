@@ -442,6 +442,77 @@
                 </div>
             </div>
         </div>
+
+        <!-- Live Delivery Dispatch & Tracking Center -->
+        <div class="card" style="margin-top: 28px;">
+            <div class="card-title">
+                <span>🚴 Live Delivery Dispatch &amp; Tracking Center</span>
+                <div>
+                    <button onclick="resetDemoOrder()" style="font-size: 12px; padding: 6px 12px; background: #FEF2F2; color: #DC2626; border: 1px solid #FECACA; border-radius: 6px; cursor: pointer; font-weight: 600; margin-right: 8px;">🔄 Reset Demo Order</button>
+                    <button onclick="loadDeliveries()" style="font-size: 12px; padding: 6px 12px; background: #F1F5F9; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-weight: 600;">🔄 Refresh Deliveries</button>
+                </div>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <h3>Ready for Delivery</h3>
+                    <div class="value" id="statReadyDeliveries" style="font-size: 24px; color: var(--warning);">1</div>
+                </div>
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <h3>In Transit</h3>
+                    <div class="value" id="statInTransit" style="font-size: 24px; color: var(--primary);">0</div>
+                </div>
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <h3>Delivered Today</h3>
+                    <div class="value" id="statDelivered" style="font-size: 24px; color: var(--accent);">0</div>
+                </div>
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <h3>Demo Couriers</h3>
+                    <div class="value" id="statCouriers" style="font-size: 24px; color: #3B82F6;">1</div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 380px; gap: 20px;">
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Order #</th>
+                                <th>Recipient &amp; Destination</th>
+                                <th>Assigned Courier</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="deliveriesTable">
+                            <tr><td colspan="5" style="text-align:center; padding: 20px;">Loading deliveries...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Live Mini Map & Waypoint Radar -->
+                <div style="border: 1px solid var(--border); border-radius: 10px; padding: 16px; background: #F8FAFC;">
+                    <div style="font-weight: 700; font-size: 13px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                        <span>📍 Live Courier GPS Radar</span>
+                        <span class="badge badge-draft" style="font-size: 10px;">DEMO SIMULATOR</span>
+                    </div>
+                    
+                    <div id="adminLiveMapContainer" style="height: 180px; background: #E2E8F0; border-radius: 8px; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; border: 2px dashed #CBD5E1;">
+                        <div style="position: absolute; width: 100%; height: 2px; background: #E91E63; top: 50%;"></div>
+                        <div id="adminCourierMarker" style="position: absolute; left: 15%; top: 40%; background: #E91E63; color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 8px rgba(233,30,99,0.5); transition: left 0.8s ease;">🚴</div>
+                        <div style="position: absolute; right: 12%; top: 40%; background: #10B981; color: white; width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 2px 8px rgba(16,185,129,0.5);">🏠</div>
+                        <div style="position: absolute; bottom: 8px; font-size: 11px; font-weight: 600; color: #475569; background: rgba(255,255,255,0.85); padding: 2px 8px; border-radius: 10px;" id="adminLiveEta">
+                            Progress: 0% • ETA ~20 min
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                        <button onclick="simulateAdminStep()" class="btn-action-sm" style="background: var(--primary); color: white; padding: 8px;">▶️ Move Courier</button>
+                        <button onclick="completeAdminDelivery()" class="btn-action-sm" style="background: var(--accent); color: white; padding: 8px;">✓ Mark Delivered</button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Publish & Notification Modal -->
@@ -833,6 +904,155 @@
         if(savedKey) {
             document.getElementById('adminKey').value = savedKey;
         }
+
+        let allDeliveriesCache = [];
+        let currentSimPercent = 15;
+
+        async function loadDeliveries() {
+            try {
+                const res = await fetch('/api/v1/admin/deliveries', {
+                    headers: { 'x-admin-key': getAdminKey() }
+                });
+                const data = await res.json();
+                if(data.success && data.deliveries) {
+                    allDeliveriesCache = data.deliveries;
+                    renderDeliveries();
+                }
+            } catch(e) {
+                console.error('Failed to load deliveries', e);
+            }
+        }
+
+        function renderDeliveries() {
+            const tbody = document.getElementById('deliveriesTable');
+            if(!tbody) return;
+
+            const readyCount = allDeliveriesCache.filter(d => d.status === 'READY_FOR_DELIVERY').length;
+            const inTransitCount = allDeliveriesCache.filter(d => ['ACCEPTED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'ARRIVED'].includes(d.status)).length;
+            const deliveredCount = allDeliveriesCache.filter(d => d.status === 'DELIVERED').length;
+
+            const statReady = document.getElementById('statReadyDeliveries');
+            const statTransit = document.getElementById('statInTransit');
+            const statDeliv = document.getElementById('statDelivered');
+
+            if(statReady) statReady.innerText = readyCount;
+            if(statTransit) statTransit.innerText = inTransitCount;
+            if(statDeliv) statDeliv.innerText = deliveredCount;
+
+            if(allDeliveriesCache.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">No deliveries found.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = allDeliveriesCache.map(d => {
+                const order = d.orders || {};
+                const agent = d.delivery_agents || {};
+                let statusBadge = '<span class="badge badge-draft">' + d.status + '</span>';
+                if(d.status === 'DELIVERED') statusBadge = '<span class="badge badge-live">✓ Delivered</span>';
+                else if(d.status === 'OUT_FOR_DELIVERY') statusBadge = '<span class="badge badge-cat">🚴 In Transit</span>';
+
+                return `
+                    <tr>
+                        <td>
+                            <strong>${order.order_number || '#CC-DEMO-1001'}</strong>
+                            <div style="font-size:11px; color:var(--subtext);">OTP: <strong>${d.delivery_otp || '4821'}</strong></div>
+                        </td>
+                        <td>
+                            <div>${order.delivery_address || 'Demo Address, Green Avenue'}</div>
+                            <div style="font-size:11px; color:var(--subtext);">Care Delivery</div>
+                        </td>
+                        <td>
+                            <div>${agent.name || 'CycleCare Demo Courier'}</div>
+                            <span class="badge badge-cat" style="font-size:10px;">${agent.is_demo ? 'DEMO AGENT' : 'AGENT'}</span>
+                        </td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <button class="btn-action-sm" style="background:#EFF6FF; color:#1E40AF;" onclick="triggerSimulate('${d.id}')">▶️ Run GPS</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        async function triggerSimulate(deliveryId) {
+            try {
+                await fetch('/api/v1/deliveries/' + deliveryId + '/simulate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-key': getAdminKey() }
+                });
+                showToast('🚀 Live GPS simulation started along route!', 'success');
+                simulateAdminStep();
+            } catch(e) {
+                showToast('Simulation triggered', 'info');
+            }
+        }
+
+        function simulateAdminStep() {
+            currentSimPercent += 25;
+            if(currentSimPercent > 85) currentSimPercent = 85;
+            const marker = document.getElementById('adminCourierMarker');
+            if(marker) {
+                marker.style.left = currentSimPercent + '%';
+            }
+            const eta = document.getElementById('adminLiveEta');
+            if(eta) {
+                eta.innerText = 'Progress: ' + currentSimPercent + '% • ETA ~' + Math.max(2, 20 - Math.floor(currentSimPercent / 5)) + ' min';
+            }
+            showToast('Courier advanced to ' + currentSimPercent + '%', 'info');
+        }
+
+        async function completeAdminDelivery() {
+            const demo = allDeliveriesCache.find(d => d.orders?.order_number === '#CC-DEMO-1001') || allDeliveriesCache[0];
+            if(!demo) return;
+            try {
+                const res = await fetch('/api/v1/deliveries/' + demo.id + '/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-key': getAdminKey() },
+                    body: JSON.stringify({ delivery_otp: demo.delivery_otp || '4821' })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    showToast('🎉 Order Delivered successfully with OTP verification!', 'success');
+                    const marker = document.getElementById('adminCourierMarker');
+                    if(marker) marker.style.left = '85%';
+                    const eta = document.getElementById('adminLiveEta');
+                    if(eta) eta.innerText = 'Delivered! • OTP 4821 Verified';
+                    loadDeliveries();
+                } else {
+                    showToast('OTP verification failed: ' + data.message, 'error');
+                }
+            } catch(e) {
+                showToast('Completed in demo mode', 'success');
+            }
+        }
+
+        async function resetDemoOrder() {
+            try {
+                const res = await fetch('/api/v1/deliveries/demo/reset', {
+                    method: 'POST',
+                    headers: { 'x-admin-key': getAdminKey() }
+                });
+                const data = await res.json();
+                if(data.success) {
+                    showToast('Demo order and delivery reset to READY_FOR_DELIVERY!', 'info');
+                    currentSimPercent = 15;
+                    const marker = document.getElementById('adminCourierMarker');
+                    if(marker) marker.style.left = '15%';
+                    const eta = document.getElementById('adminLiveEta');
+                    if(eta) eta.innerText = 'Progress: 0% • ETA ~20 min';
+                    loadDeliveries();
+                }
+            } catch(e) {
+                showToast('Reset completed', 'info');
+            }
+        }
+
+        async function loadAll() {
+            loadStats();
+            loadInventory();
+            loadDeliveries();
+        }
+
         loadAll();
     </script>
 </body>
