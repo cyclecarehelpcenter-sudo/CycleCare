@@ -16,18 +16,18 @@ android {
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         
-        buildConfigField "String", "BASE_URL", "\"http://10.0.2.2:5000/api/v1/\""
+        buildConfigField "String", "BASE_URL", "\"https://cyclecare-57my.onrender.com/api/v1/\""
     }
 
     buildTypes {
         debug {
-            buildConfigField "String", "BASE_URL", "\"http://10.0.2.2:5000/api/v1/\""
+            buildConfigField "String", "BASE_URL", "\"https://cyclecare-57my.onrender.com/api/v1/\""
             debuggable true
         }
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            buildConfigField "String", "BASE_URL", "\"https://cyclecare-api.onrender.com/api/v1/\""
+            buildConfigField "String", "BASE_URL", "\"https://cyclecare-57my.onrender.com/api/v1/\""
         }
     }
 
