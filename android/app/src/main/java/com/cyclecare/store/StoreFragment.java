@@ -98,12 +98,15 @@ public class StoreFragment extends Fragment {
 
     private void loadSampleProducts() {
         allProducts.clear();
-        allProducts.add(new Product("p1", "Organic Cotton Pads", "100% Organic biodegradable day pads (12x)", 299, "Period Care", 25));
-        allProducts.add(new Product("p2", "Cramp Relief Heat Patch", "Continuous 8-hour soothing warmth therapy", 199, "Comfort", 40));
-        allProducts.add(new Product("p3", "Chamomile Comfort Tea", "Natural caffeine-free relaxing herbal brew", 349, "Teas", 18));
-        allProducts.add(new Product("p4", "pH Balanced Hygiene Wash", "Gentle aloe vera & tea tree daily wash", 279, "Hygiene", 30));
-        allProducts.add(new Product("p5", "Cycle Care Travel Pouch", "Discreet waterproof travel storage pouch", 449, "Comfort", 15));
-        allProducts.add(new Product("p6", "Heavy Flow Night Wings", "Extra long overnight absorption pads (10x)", 329, "Period Care", 50));
+        allProducts.add(new Product("a1111111-1111-1111-1111-111111111111", "CycleCare Organic Cotton Pads (Night)", "Soft, ultra-absorbent organic cotton pads with heavy flow leak guards (10x)", 149, "Period Care", 100, "https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80"));
+        allProducts.add(new Product("a2222222-2222-2222-2222-222222222222", "CycleCare Ultra-Thin Daily Pantyliners", "Breathable daily pantyliners for all-day fresh comfort (20x)", 99, "Period Care", 150, "https://images.unsplash.com/photo-1584017911766-d451b3d0e843?auto=format&fit=crop&w=600&q=80"));
+        allProducts.add(new Product("b1111111-1111-1111-1111-111111111111", "Instant Warmth Heat Patch (Pack of 3)", "Air-activated heating patches soothing cramps for up to 8 hours", 199, "Comfort", 80, "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80"));
+        allProducts.add(new Product("b2222222-2222-2222-2222-222222222222", "Soothing Electric Heating Water Bag", "Rechargeable electric hot water bag for abdominal & back relief", 399, "Comfort", 40, "https://images.unsplash.com/photo-1515377905703-c4788e51af15?auto=format&fit=crop&w=600&q=80"));
+        allProducts.add(new Product("c1111111-1111-1111-1111-111111111111", "Gentle pH-Balanced Intimate Wipes", "Biodegradable wipes with soothing aloe vera and chamomile (15x)", 85, "Hygiene", 120, "https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&w=600&q=80"));
+        allProducts.add(new Product("d1111111-1111-1111-1111-111111111111", "CycleCare Period Comfort Dark Chocolate (70%)", "Rich Belgian dark chocolate infused with magnesium for cramp ease", 120, "Comfort", 200, "https://images.unsplash.com/photo-1549007994-cb92caebd54b?auto=format&fit=crop&w=600&q=80"));
+        allProducts.add(new Product("d2222222-2222-2222-2222-222222222222", "Chamomile & Ginger Soothing Herbal Tea", "Caffeine-free herbal blend relieving bloating & body tension (15 Bags)", 180, "Teas", 90, "https://images.unsplash.com/photo-1597481499750-3e6b22637e12?auto=format&fit=crop&w=600&q=80"));
+        allProducts.add(new Product("009f4b12-2efa-4e28-8c1a-4f872e955fb7", "CycleCare Herbal Cramp Relief Roll-On", "Ayurvedic botanical essential oils for fast abdominal cramp relief", 249, "Comfort", 65, "https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=600&q=80"));
+        allProducts.add(new Product("1f970168-18c4-4b4a-81bd-3aed6fcf3587", "CycleCare Magnesium Sleep & Cramp Gummies", "Berry flavored chewable gummies supporting muscle relaxation & deep sleep", 349, "Comfort", 55, "https://images.unsplash.com/photo-1577401239170-897942555fb3?auto=format&fit=crop&w=600&q=80"));
     }
 
     private void filterProducts(String category) {

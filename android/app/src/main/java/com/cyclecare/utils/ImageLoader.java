@@ -117,8 +117,9 @@ public class ImageLoader {
         try {
             URL url = new URL(urlStr);
             conn = (HttpURLConnection) url.openConnection();
-            conn.setConnectTimeout(8000);
-            conn.setReadTimeout(12000);
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) CycleCareApp/1.0");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(15000);
             conn.setInstanceFollowRedirects(true);
             conn.connect();
 

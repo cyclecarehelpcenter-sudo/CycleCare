@@ -65,7 +65,7 @@
                     android:id="@+id/iv_product_hero"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:scaleType="centerInside"
+                    android:scaleType="centerCrop"
                     android:src="@drawable/ic_nav_store_3d"
                     android:contentDescription="Product Image" />
 

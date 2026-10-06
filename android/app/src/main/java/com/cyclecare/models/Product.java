@@ -47,18 +47,26 @@ public class Product {
     @SerializedName("status")
     private String status;
 
+    @SerializedName("image_url")
+    private String imageUrl;
+
     @SerializedName("product_images")
     private List<Map<String, Object>> productImages;
 
     public Product() {}
 
     public Product(String id, String name, String description, double price, String category, int stock) {
+        this(id, name, description, price, category, stock, null);
+    }
+
+    public Product(String id, String name, String description, double price, String category, int stock, String imageUrl) {
         this.id = id;
         this.name = name;
         this.description = description;
         this.price = price;
         this.category = category;
         this.stock = stock;
+        this.imageUrl = imageUrl;
     }
 
     public String getId() { return id; }
@@ -81,7 +89,10 @@ public class Product {
     public String getImageUrl() {
         if (productImages != null && !productImages.isEmpty()) {
             Object url = productImages.get(0).get("image_url");
-            if (url != null) return url.toString();
+            if (url != null && !url.toString().trim().isEmpty()) return url.toString().trim();
+        }
+        if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+            return imageUrl.trim();
         }
         return null;
     }
