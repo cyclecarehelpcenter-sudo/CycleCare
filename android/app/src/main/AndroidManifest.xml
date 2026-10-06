@@ -37,6 +37,15 @@
         <activity android:name=".wellness.AskAIAssistantActivity" android:exported="false" />
         <activity android:name=".profile.SettingsActivity" android:exported="false" />
 
+        <!-- Firebase Cloud Messaging Service -->
+        <service
+            android:name=".notifications.CycleCareMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
+
         <!-- FileProvider for Sharing App APK -->
         <provider
             android:name="androidx.core.content.FileProvider"
