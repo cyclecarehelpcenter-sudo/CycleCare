@@ -139,6 +139,17 @@ const updateProduct = async (req, res, next) => {
   }
 };
 
+const deleteProduct = async (req, res, next) => {
+  try {
+    const productId = req.params.id;
+    const { error } = await supabase.from('products').delete().eq('id', productId);
+    if (error) throw error;
+    res.json({ success: true, message: 'Product deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getAdminOrders = async (req, res, next) => {
   try {
     const { data, error } = await supabase.from('orders').select('*, order_items(*), users(email), addresses(*)').order('created_at', { ascending: false });
@@ -199,6 +210,7 @@ module.exports = {
   getAdminProducts,
   createProduct,
   updateProduct,
+  deleteProduct,
   getAdminOrders,
   updateOrderStatus,
   getAuditLogs
