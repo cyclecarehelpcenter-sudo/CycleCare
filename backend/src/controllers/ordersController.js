@@ -3,48 +3,83 @@ const supabase = require('../config/supabase');
 const createOrder = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { address, coupon_code } = req.body;
+    const {
+      address_id,
+      address,
+      items,
+      coupon_code,
+      is_discreet_packaging = true,
+      delivery_notes = null,
+      buyer_id = null,
+      recipient_user_id = null,
+      care_package_message = null
+    } = req.body;
 
-    if (!address || !address.address_line || !address.pincode) {
-      return res.status(400).json({ success: false, message: 'Valid delivery address is required' });
+    let targetAddressId = address_id;
+
+    if (!targetAddressId) {
+      if (!address || !address.address_line || !address.pincode) {
+        return res.status(400).json({ success: false, message: 'Valid delivery address or address_id is required' });
+      }
+
+      // Save new address
+      const { data: savedAddress, error: addrError } = await supabase
+        .from('addresses')
+        .insert([{
+          user_id: userId,
+          name: address.name,
+          phone: address.phone,
+          address_line: address.address_line,
+          landmark: address.landmark || null,
+          city: address.city,
+          state: address.state,
+          pincode: address.pincode,
+          type: address.type || 'HOME'
+        }])
+        .select()
+        .single();
+
+      if (addrError) throw addrError;
+      targetAddressId = savedAddress.id;
     }
 
-    // Save / fetch address
-    const { data: savedAddress, error: addrError } = await supabase
-      .from('addresses')
-      .insert([{
-        user_id: userId,
-        name: address.name,
-        phone: address.phone,
-        address_line: address.address_line,
-        city: address.city,
-        state: address.state,
-        pincode: address.pincode,
-        type: address.type || 'HOME'
-      }])
-      .select()
-      .single();
+    // Determine checkout items: either direct items (Buy Now) or Cart items
+    let checkoutItems = [];
+    let isDirectCheckout = Array.isArray(items) && items.length > 0;
+    let userCart = null;
 
-    if (addrError) throw addrError;
+    if (isDirectCheckout) {
+      for (const reqItem of items) {
+        const { data: prod } = await supabase.from('products').select('*').eq('id', reqItem.product_id).single();
+        if (prod) {
+          checkoutItems.push({
+            products: prod,
+            quantity: reqItem.quantity || 1
+          });
+        }
+      }
+    } else {
+      const { data: cart } = await supabase.from('cart').select('id').eq('user_id', userId).single();
+      userCart = cart;
+      if (!userCart) return res.status(400).json({ success: false, message: 'Cart is empty' });
 
-    // Fetch user cart
-    const { data: userCart } = await supabase.from('cart').select('id').eq('user_id', userId).single();
-    if (!userCart) return res.status(400).json({ success: false, message: 'Cart is empty' });
+      const { data: cartItems } = await supabase
+        .from('cart_items')
+        .select('*, products(*)')
+        .eq('cart_id', userCart.id);
 
-    const { data: cartItems } = await supabase
-      .from('cart_items')
-      .select('*, products(*)')
-      .eq('cart_id', userCart.id);
+      checkoutItems = cartItems || [];
+    }
 
-    if (!cartItems || cartItems.length === 0) {
-      return res.status(400).json({ success: false, message: 'Cart is empty' });
+    if (!checkoutItems || checkoutItems.length === 0) {
+      return res.status(400).json({ success: false, message: 'No items to order' });
     }
 
     // Calculate subtotal authoritatively from current DB prices & verify stock
     let subtotal = 0;
     const orderItemSnapshots = [];
 
-    for (const item of cartItems) {
+    for (const item of checkoutItems) {
       const product = item.products;
       if (!product || !product.is_active) {
         return res.status(400).json({ success: false, message: `Product ${product?.name || ''} is no longer available` });
@@ -60,6 +95,7 @@ const createOrder = async (req, res, next) => {
       orderItemSnapshots.push({
         product_id: product.id,
         product_name_snapshot: product.name,
+        image_url: product.image_url || null,
         unit_price: unitPrice,
         quantity: item.quantity,
         total: total
@@ -86,19 +122,31 @@ const createOrder = async (req, res, next) => {
 
     const deliveryFee = subtotal > 499 ? 0 : 40;
     const totalAmount = Math.max(0, subtotal - discount + deliveryFee);
+    const orderNumber = `CC-${Date.now().toString().slice(-6)}${Math.floor(1000 + Math.random() * 9000)}`;
+    const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
     // Create order header
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .insert([{
         user_id: userId,
-        address_id: savedAddress.id,
+        address_id: targetAddressId,
         subtotal: subtotal,
         discount: discount,
         delivery_fee: deliveryFee,
         total_amount: totalAmount,
         coupon_id: couponId,
-        status: 'PENDING'
+        order_number: orderNumber,
+        status: 'PENDING',
+        order_status: 'PROCESSING',
+        delivery_status: 'ORDER_CONFIRMED',
+        payment_status: 'PENDING',
+        delivery_otp: deliveryOtp,
+        is_discreet_packaging: !!is_discreet_packaging,
+        delivery_notes: delivery_notes,
+        buyer_id: buyer_id || userId,
+        recipient_user_id: recipient_user_id || null,
+        care_package_message: care_package_message || null
       }])
       .select()
       .single();
@@ -109,8 +157,10 @@ const createOrder = async (req, res, next) => {
     const itemsToInsert = orderItemSnapshots.map(i => ({ ...i, order_id: order.id }));
     await supabase.from('order_items').insert(itemsToInsert);
 
-    // Clear cart
-    await supabase.from('cart_items').delete().eq('cart_id', userCart.id);
+    // Clear cart if ordered from cart
+    if (!isDirectCheckout && userCart) {
+      await supabase.from('cart_items').delete().eq('cart_id', userCart.id);
+    }
 
     res.status(201).json({
       success: true,

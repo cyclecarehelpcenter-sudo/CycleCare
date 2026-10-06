@@ -74,4 +74,7 @@
     <string name="state_empty">No data logged yet.</string>
     <string name="state_error">Unable to connect to server. Check your network.</string>
     <string name="btn_retry">Retry</string>
+
+    <!-- Google Maps Key -->
+    <string name="google_maps_key">YOUR_GOOGLE_MAPS_API_KEY</string>
 </resources>

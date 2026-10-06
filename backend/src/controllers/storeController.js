@@ -116,7 +116,7 @@ const getCart = async (req, res, next) => {
 
     const { data: items } = await supabase
       .from('cart_items')
-      .select('*, products(name, description, price, discount_price, stock, sku)')
+      .select('*, products(id, name, description, price, discount_price, stock, sku, image_url, is_active)')
       .eq('cart_id', userCart.id);
 
     let subtotal = 0;
@@ -126,6 +126,9 @@ const getCart = async (req, res, next) => {
       subtotal += total;
       return {
         ...item,
+        product_name: item.products?.name || 'Item',
+        image_url: item.products?.image_url || '',
+        stock: item.products?.stock || 0,
         unit_price: activePrice,
         item_total: total
       };

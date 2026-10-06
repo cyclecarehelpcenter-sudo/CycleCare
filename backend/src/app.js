@@ -20,6 +20,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const productRoutes = require('./routes/productRoutes');
 const partnerRoutes = require('./routes/partnerRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes');
+const addressesRoutes = require('./routes/addressesRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -61,6 +62,7 @@ app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/partners', partnerRoutes);
 app.use('/api/v1/deliveries', deliveryRoutes);
 app.use('/api/v1/delivery', deliveryRoutes);
+app.use('/api/v1/addresses', addressesRoutes);
 
 // Healthcheck Endpoint
 app.get('/api/v1/health', (req, res) => {

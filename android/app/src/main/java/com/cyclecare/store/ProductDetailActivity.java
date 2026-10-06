@@ -68,6 +68,13 @@ public class ProductDetailActivity extends AppCompatActivity {
 
         btnAddToCart.setOnClickListener(v -> addToCart());
         btnBuyNow.setOnClickListener(v -> buyNow());
+        ImageButton btnCart = findViewById(R.id.btn_cart);
+        if (btnCart != null) {
+            btnCart.setOnClickListener(v -> {
+                Intent cartIntent = new Intent(ProductDetailActivity.this, CartActivity.class);
+                startActivity(cartIntent);
+            });
+        }
     }
 
     @Override
@@ -220,10 +227,23 @@ public class ProductDetailActivity extends AppCompatActivity {
                 public void onFailure(Call<Map<String, Object>> call, Throwable t) {}
             });
         }
+
+        Intent cartIntent = new Intent(this, CartActivity.class);
+        startActivity(cartIntent);
     }
 
     private void buyNow() {
-        String name = currentProduct != null ? currentProduct.getName() : tvTitle.getText().toString();
-        Toast.makeText(this, "Order initiated for " + quantity + "x " + name + "!", Toast.LENGTH_LONG).show();
+        double price = 199.0;
+        if (currentProduct != null) {
+            price = currentProduct.getDiscountPrice() > 0 ? currentProduct.getDiscountPrice() : currentProduct.getPrice();
+        }
+
+        Intent checkoutIntent = new Intent(this, CheckoutActivity.class);
+        checkoutIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRODUCT_ID, productId);
+        checkoutIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRODUCT_NAME, currentProduct != null ? currentProduct.getName() : tvTitle.getText().toString());
+        checkoutIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRICE, price);
+        checkoutIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_QTY, quantity);
+        checkoutIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_IMAGE, currentProduct != null ? currentProduct.getImageUrl() : "");
+        startActivity(checkoutIntent);
     }
 }

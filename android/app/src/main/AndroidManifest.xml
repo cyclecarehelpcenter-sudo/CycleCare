@@ -12,6 +12,10 @@
     <!-- Biometric Authentication -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
+    <!-- Location & Maps for Live Delivery Tracking -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -90,6 +94,18 @@
                 <data android:scheme="cyclecare" android:host="order" />
             </intent-filter>
         </activity>
+
+        <!-- Commerce Activities -->
+        <activity android:name=".store.CartActivity" android:exported="false" />
+        <activity android:name=".store.CheckoutActivity" android:exported="false" />
+        <activity android:name=".store.AddressManagementActivity" android:exported="false" />
+        <activity android:name=".store.OrdersActivity" android:exported="false" />
+        <activity android:name=".store.OrderDetailActivity" android:exported="false" />
+
+        <!-- Google Maps API Key Meta-Data -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="@string/google_maps_key" />
 
         <!-- Firebase Cloud Messaging Service -->
         <service

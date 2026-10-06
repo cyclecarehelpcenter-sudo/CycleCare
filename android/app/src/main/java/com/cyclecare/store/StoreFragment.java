@@ -64,7 +64,57 @@ public class StoreFragment extends Fragment {
         chipHygiene.setOnClickListener(v -> filterProducts("Hygiene"));
         chipTeas.setOnClickListener(v -> filterProducts("Teas"));
 
+        // Header Action Listeners
+        View btnOrders = view.findViewById(R.id.btn_store_orders);
+        if (btnOrders != null) {
+            btnOrders.setOnClickListener(v -> {
+                android.content.Intent intent = new android.content.Intent(getContext(), OrdersActivity.class);
+                startActivity(intent);
+            });
+        }
+
+        View btnCart = view.findViewById(R.id.btn_store_cart);
+        if (btnCart != null) {
+            btnCart.setOnClickListener(v -> {
+                android.content.Intent intent = new android.content.Intent(getContext(), CartActivity.class);
+                startActivity(intent);
+            });
+        }
+
         return view;
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        updateCartBadge();
+    }
+
+    private void updateCartBadge() {
+        if (getView() == null || getContext() == null) return;
+        android.widget.TextView tvBadge = getView().findViewById(R.id.tv_store_cart_badge);
+        if (tvBadge == null) return;
+
+        ApiClient.getApiService(getContext()).getCart().enqueue(new Callback<Map<String, Object>>() {
+            @Override
+            public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Map<String, Object> body = response.body();
+                    Object itemsObj = body.get("items");
+                    if (itemsObj instanceof List) {
+                        int count = ((List<?>) itemsObj).size();
+                        if (count > 0) {
+                            tvBadge.setVisibility(View.VISIBLE);
+                            tvBadge.setText(String.valueOf(count));
+                        } else {
+                            tvBadge.setVisibility(View.GONE);
+                        }
+                    }
+                }
+            }
+            @Override
+            public void onFailure(Call<Map<String, Object>> call, Throwable t) {}
+        });
     }
 
     private void fetchLiveProducts() {

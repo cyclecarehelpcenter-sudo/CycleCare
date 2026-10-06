@@ -72,6 +72,54 @@ public interface ApiService {
     @POST("store/cart/items")
     Call<Map<String, Object>> addToCart(@Body Map<String, Object> body);
 
+    @PUT("store/cart/items/{id}")
+    Call<Map<String, Object>> updateCartItem(@Path("id") String id, @Body Map<String, Object> body);
+
+    @DELETE("store/cart/items/{id}")
+    Call<Map<String, Object>> removeFromCart(@Path("id") String id);
+
+    // Addresses
+    @GET("addresses")
+    Call<Map<String, Object>> getAddresses();
+
+    @POST("addresses")
+    Call<Map<String, Object>> addAddress(@Body Map<String, Object> body);
+
+    @PUT("addresses/{id}")
+    Call<Map<String, Object>> updateAddress(@Path("id") String id, @Body Map<String, Object> body);
+
+    @DELETE("addresses/{id}")
+    Call<Map<String, Object>> deleteAddress(@Path("id") String id);
+
+    @POST("addresses/{id}/default")
+    Call<Map<String, Object>> setDefaultAddress(@Path("id") String id);
+
+    // Orders
+    @POST("orders")
+    Call<Map<String, Object>> createOrder(@Body Map<String, Object> body);
+
+    @GET("orders")
+    Call<Map<String, Object>> getUserOrders();
+
+    @GET("orders/{id}")
+    Call<Map<String, Object>> getOrderById(@Path("id") String id);
+
+    @POST("orders/{id}/cancel")
+    Call<Map<String, Object>> cancelOrder(@Path("id") String id);
+
+    // Payments
+    @POST("payments/demo/create")
+    Call<Map<String, Object>> createDemoPayment(@Body Map<String, Object> body);
+
+    @POST("payments/demo/success")
+    Call<Map<String, Object>> demoPaymentSuccess(@Body Map<String, Object> body);
+
+    @POST("payments/razorpay/create")
+    Call<Map<String, Object>> createRazorpayOrder(@Body Map<String, Object> body);
+
+    @POST("payments/razorpay/verify")
+    Call<Map<String, Object>> verifyRazorpayPayment(@Body Map<String, Object> body);
+
     @GET("care-kits")
     Call<Map<String, Object>> getCareKits();
 
