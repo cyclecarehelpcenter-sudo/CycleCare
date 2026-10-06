@@ -46,6 +46,15 @@
             </intent-filter>
         </service>
 
+        <!-- Test Notification Receiver -->
+        <receiver
+            android:name=".notifications.NotificationTestReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.cyclecare.ACTION_TRIGGER_NOTIFICATION" />
+            </intent-filter>
+        </receiver>
+
         <!-- FileProvider for Sharing App APK -->
         <provider
             android:name="androidx.core.content.FileProvider"
