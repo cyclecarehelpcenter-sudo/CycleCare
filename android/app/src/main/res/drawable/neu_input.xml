@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Neumorphic Input: pressed/inset surface -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Dark shadow inset (top-left inner) -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#C9C5CC" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+    <!-- Light shadow inset (bottom-right inner) -->
+    <item android:left="1dp" android:top="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+            <corners android:radius="14dp" />
+        </shape>
+    </item>
+    <!-- Main pressed inset surface -->
+    <item android:left="2dp" android:top="2dp" android:right="1dp" android:bottom="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#E8E5EC" />
+            <corners android:radius="13dp" />
+        </shape>
+    </item>
+</layer-list>

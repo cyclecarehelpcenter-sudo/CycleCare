@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CycleCare — Admin Dashboard</title>
+    <style>
+        :root {
+            --primary: #E91E63;
+            --primary-dark: #C2185B;
+            --bg: #F8F9FA;
+            --card-bg: #FFFFFF;
+            --text: #212121;
+            --subtext: #757575;
+            --border: #E0E0E0;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            background-color: var(--bg);
+            color: var(--text);
+        }
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        h1 { margin: 0; font-size: 24px; font-weight: 600; }
+        .container {
+            max-width: 1200px;
+            margin: 32px auto;
+            padding: 0 16px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border: 1px solid var(--border);
+        }
+        .card h3 { margin: 0 0 8px 0; color: var(--subtext); font-size: 14px; text-transform: uppercase; }
+        .card .value { font-size: 28px; font-weight: bold; color: var(--primary-dark); }
+        .section-title { font-size: 20px; font-weight: 600; margin-bottom: 16px; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        th, td {
+            padding: 14px 18px;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+        th { background-color: #F0F0F0; font-weight: 600; }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-success { background: #E8F5E9; color: #2E7D32; }
+        .badge-warning { background: #FFF8E1; color: #F57F17; }
+        .badge-danger { background: #FFEBEE; color: #C62828; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>CycleCare Admin Dashboard</h1>
+        <div id="user-info">Admin Console v1.0</div>
+    </header>
+    <div class="container">
+        <div class="grid">
+            <div class="card">
+                <h3>Total Users</h3>
+                <div class="value" id="stat-users">--</div>
+            </div>
+            <div class="card">
+                <h3>Total Orders</h3>
+                <div class="value" id="stat-orders">--</div>
+            </div>
+            <div class="card">
+                <h3>Total Revenue</h3>
+                <div class="value" id="stat-revenue">₹--</div>
+            </div>
+            <div class="card">
+                <h3>Low Stock Alerts</h3>
+                <div class="value" id="stat-lowstock">--</div>
+            </div>
+        </div>
+
+        <div class="section-title">Low Stock Inventory Alerts</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Product Name</th>
+                    <th>SKU</th>
+                    <th>Price</th>
+                    <th>Remaining Stock</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="low-stock-table">
+                <tr><td colspan="5" style="text-align:center;">Loading alerts...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        async function fetchDashboard() {
+            try {
+                // In production, token is retrieved from session storage
+                const token = localStorage.getItem('adminToken') || '';
+                const res = await fetch('/api/v1/admin/dashboard', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if(data.success) {
+                    document.getElementById('stat-users').innerText = data.stats.totalUsers;
+                    document.getElementById('stat-orders').innerText = data.stats.totalOrders;
+                    document.getElementById('stat-revenue').innerText = '₹' + data.stats.totalRevenue;
+                    document.getElementById('stat-lowstock').innerText = data.stats.lowStockAlertsCount;
+
+                    const tbody = document.getElementById('low-stock-table');
+                    if(data.lowStockProducts.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">All products have healthy inventory!</td></tr>';
+                    } else {
+                        tbody.innerHTML = data.lowStockProducts.map(p => `
+                            <tr>
+                                <td><strong>${p.name}</strong></td>
+                                <td>${p.sku}</td>
+                                <td>₹${p.price}</td>
+                                <td><span class="badge badge-danger">${p.stock} units</span></td>
+                                <td><span class="badge badge-warning">Low Stock</span></td>
+                            </tr>
+                        `).join('');
+                    }
+                }
+            } catch(e) {
+                console.log('Dashboard fetch preview');
+            }
+        }
+        fetchDashboard();
+    </script>
+</body>
+</html>

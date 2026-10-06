@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="28dp"
+    android:height="28dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+
+    <!-- 3D Shadow -->
+    <path
+        android:fillColor="#1A000000"
+        android:pathData="M 24,5 A 19,19 0 1,0 43,24 A 19,19 0 0,0 24,5 Z" />
+
+    <!-- 3D Outer Halo Ring: Sky Blue Soft -->
+    <path
+        android:fillColor="#E0F2FE"
+        android:strokeColor="#BAE6FD"
+        android:strokeWidth="1.5"
+        android:pathData="M 24,6 A 18,18 0 1,1 23.9,6 Z" />
+
+    <!-- 3D Avatar Head Sphere with Specular Highlight -->
+    <path
+        android:fillColor="#C2185B"
+        android:pathData="M 24,12 A 7,7 0 1,1 23.9,12 Z" />
+
+    <!-- Head Specular Highlight -->
+    <path
+        android:fillColor="#FF4081"
+        android:pathData="M 22,14 A 2.5,2.5 0 1,1 21.9,14 Z" />
+
+    <!-- 3D Avatar Shoulders / Torso with Depth -->
+    <path
+        android:fillColor="#0284C7"
+        android:pathData="M 14,37 C 14,29 20,27 24,27 C 28,27 34,29 34,37 Z" />
+
+    <!-- Torso Top Highlight -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M 16,35 C 18,30 22,28.5 24,28.5 C 26,28.5 30,30 32,35 Z" />
+
+</vector>
