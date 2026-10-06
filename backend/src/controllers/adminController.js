@@ -7,6 +7,11 @@ const getDashboardStats = async (req, res, next) => {
     const { data: paidOrders } = await supabase.from('orders').select('total_amount').eq('status', 'PAID');
     const { data: lowStockProducts } = await supabase.from('products').select('*').lte('stock', 5);
 
+    // Partner Connections Aggregate Metrics (Privacy-Safe: Zero Health Data)
+    const { count: totalPartnerConnections } = await supabase.from('partner_connections').select('*', { count: 'exact', head: true });
+    const { count: activePartnerConnections } = await supabase.from('partner_connections').select('*', { count: 'exact', head: true }).eq('status', 'ACCEPTED');
+    const { count: pendingPartnerRequests } = await supabase.from('partner_connections').select('*', { count: 'exact', head: true }).eq('status', 'PENDING');
+
     const totalRevenue = (paidOrders || []).reduce((acc, curr) => acc + Number(curr.total_amount), 0);
 
     res.json({
@@ -15,7 +20,12 @@ const getDashboardStats = async (req, res, next) => {
         totalUsers: totalUsers || 0,
         totalOrders: totalOrders || 0,
         totalRevenue,
-        lowStockAlertsCount: lowStockProducts ? lowStockProducts.length : 0
+        lowStockAlertsCount: lowStockProducts ? lowStockProducts.length : 0,
+        partnerConnections: {
+          total: totalPartnerConnections || 0,
+          active: activePartnerConnections || 0,
+          pending: pendingPartnerRequests || 0
+        }
       },
       lowStockProducts: lowStockProducts || []
     });

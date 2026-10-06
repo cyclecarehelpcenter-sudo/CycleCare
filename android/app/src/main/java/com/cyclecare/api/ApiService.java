@@ -12,6 +12,7 @@ import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
 import retrofit2.http.POST;
+import retrofit2.http.PUT;
 import retrofit2.http.Path;
 import retrofit2.http.Query;
 
@@ -76,4 +77,47 @@ public interface ApiService {
 
     @POST("ai/chat")
     Call<Map<String, Object>> askAI(@Body Map<String, Object> body);
+
+    // Partner Care Mode
+    @GET("partners/search")
+    Call<Map<String, Object>> searchPartner(@Query("cyclecare_id") String cyclecareId);
+
+    @POST("partners/invite")
+    Call<Map<String, Object>> createPartnerInvite();
+
+    @POST("partners/request")
+    Call<Map<String, Object>> sendPartnerRequest(@Body Map<String, Object> body);
+
+    @GET("partners/requests")
+    Call<Map<String, Object>> getPartnerRequests();
+
+    @POST("partners/requests/{id}/accept")
+    Call<Map<String, Object>> acceptPartnerRequest(@Path("id") String requestId);
+
+    @POST("partners/requests/{id}/decline")
+    Call<Map<String, Object>> declinePartnerRequest(@Path("id") String requestId);
+
+    @DELETE("partners/{id}")
+    Call<Map<String, Object>> revokePartnerConnection(@Path("id") String connectionId);
+
+    @POST("partners/{id}/block")
+    Call<Map<String, Object>> blockPartner(@Path("id") String connectionId);
+
+    @GET("partners/{id}/permissions")
+    Call<Map<String, Object>> getPartnerPermissions(@Path("id") String connectionId);
+
+    @PUT("partners/{id}/permissions")
+    Call<Map<String, Object>> updatePartnerPermissions(@Path("id") String connectionId, @Body Map<String, Object> body);
+
+    @GET("partners/{id}/shared-cycle")
+    Call<Map<String, Object>> getSharedCycle(@Path("id") String connectionId);
+
+    @GET("partners/{id}/care-kit")
+    Call<Map<String, Object>> getSharedCareKit(@Path("id") String connectionId);
+
+    @GET("partners/{id}/wishlist")
+    Call<Map<String, Object>> getSharedWishlist(@Path("id") String connectionId);
+
+    @POST("partners/{id}/care-package")
+    Call<Map<String, Object>> createCarePackage(@Path("id") String connectionId, @Body Map<String, Object> body);
 }

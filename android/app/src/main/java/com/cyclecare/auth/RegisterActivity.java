@@ -31,9 +31,11 @@ public class RegisterActivity extends AppCompatActivity {
 
     private EditText etName, etEmail, etPassword;
     private Button btnRegister;
+    private Button btnModeTrack, btnModePartner, btnModeBoth;
     private TextView tvGoLogin, tvPandaHint;
     private ImageView ivPanda;
     private FrameLayout flPandaFrame;
+    private String selectedUsageMode = "TRACK_CYCLE";
 
     private Handler blinkHandler = new Handler(Looper.getMainLooper());
     private Runnable blinkRunnable;
@@ -48,10 +50,15 @@ public class RegisterActivity extends AppCompatActivity {
         etEmail = findViewById(R.id.et_email);
         etPassword = findViewById(R.id.et_password);
         btnRegister = findViewById(R.id.btn_register);
+        btnModeTrack = findViewById(R.id.btn_mode_track);
+        btnModePartner = findViewById(R.id.btn_mode_partner);
+        btnModeBoth = findViewById(R.id.btn_mode_both);
         tvGoLogin = findViewById(R.id.tv_go_login);
         tvPandaHint = findViewById(R.id.tv_panda_hint);
         ivPanda = findViewById(R.id.iv_panda);
         flPandaFrame = findViewById(R.id.fl_panda_frame);
+
+        setupUsageModeSelectors();
 
         // Pre-fill demo details for rapid testing
         etName.setText("Demo User");
@@ -153,6 +160,52 @@ public class RegisterActivity extends AppCompatActivity {
         blinkHandler.postDelayed(blinkRunnable, 2000);
     }
 
+    private void setupUsageModeSelectors() {
+        if (btnModeTrack == null || btnModePartner == null || btnModeBoth == null) return;
+
+        btnModeTrack.setOnClickListener(v -> {
+            selectedUsageMode = "TRACK_CYCLE";
+            btnModeTrack.setBackgroundResource(R.drawable.bg_m3_button);
+            btnModeTrack.setTextColor(getResources().getColor(R.color.textOnPrimary));
+
+            btnModePartner.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnModePartner.setTextColor(0xFF000000);
+
+            btnModeBoth.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnModeBoth.setTextColor(0xFF000000);
+
+            tvPandaHint.setText("Track your cycle, symptoms, and health signals privately.");
+        });
+
+        btnModePartner.setOnClickListener(v -> {
+            selectedUsageMode = "SUPPORT_PARTNER";
+            btnModePartner.setBackgroundResource(R.drawable.bg_m3_button);
+            btnModePartner.setTextColor(getResources().getColor(R.color.textOnPrimary));
+
+            btnModeTrack.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnModeTrack.setTextColor(0xFF000000);
+
+            btnModeBoth.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnModeBoth.setTextColor(0xFF000000);
+
+            tvPandaHint.setText("Support your partner with care kits, reminders, and gifts!");
+        });
+
+        btnModeBoth.setOnClickListener(v -> {
+            selectedUsageMode = "BOTH";
+            btnModeBoth.setBackgroundResource(R.drawable.bg_m3_button);
+            btnModeBoth.setTextColor(getResources().getColor(R.color.textOnPrimary));
+
+            btnModeTrack.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnModeTrack.setTextColor(0xFF000000);
+
+            btnModePartner.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnModePartner.setTextColor(0xFF000000);
+
+            tvPandaHint.setText("Best of both! Track your cycle and support each other.");
+        });
+    }
+
     private void performRegister() {
         String name = etName.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
@@ -173,6 +226,7 @@ public class RegisterActivity extends AppCompatActivity {
         body.put("display_name", name);
         body.put("email", email);
         body.put("password", password);
+        body.put("usage_mode", selectedUsageMode);
 
         ApiService api = ApiClient.getApiService(this);
         api.register(body).enqueue(new Callback<ApiResponse<Void>>() {
@@ -198,6 +252,7 @@ public class RegisterActivity extends AppCompatActivity {
         prefs.edit()
                 .putString("jwt_token", token)
                 .putString("user_name", userName)
+                .putString("usage_mode", selectedUsageMode)
                 .apply();
 
         Intent intent = new Intent(RegisterActivity.this, MainActivity.class);

@@ -18,6 +18,7 @@ const wellnessRoutes = require('./routes/wellnessRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const productRoutes = require('./routes/productRoutes');
+const partnerRoutes = require('./routes/partnerRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -56,6 +57,7 @@ app.use('/api/v1/wellness', wellnessRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/products', productRoutes);
+app.use('/api/v1/partners', partnerRoutes);
 
 // Healthcheck Endpoint
 app.get('/api/v1/health', (req, res) => {

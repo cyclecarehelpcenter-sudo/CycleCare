@@ -20,6 +20,7 @@ import androidx.fragment.app.Fragment;
 
 import com.cyclecare.R;
 import com.cyclecare.auth.LoginActivity;
+import com.cyclecare.partner.PartnerCareActivity;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -48,6 +49,14 @@ public class ProfileFragment extends Fragment {
             String userName = prefs.getString("user_name", "Demo User");
             tvUserName.setText(userName);
             tvUserEmail.setText(userName.toLowerCase().replaceAll("\\s+", "") + "@cyclecare.com");
+        }
+
+        View cardPartnerCare = view.findViewById(R.id.card_partner_care);
+        if (cardPartnerCare != null) {
+            cardPartnerCare.setOnClickListener(v -> {
+                Intent intent = new Intent(getActivity(), PartnerCareActivity.class);
+                startActivity(intent);
+            });
         }
 
         btnShareApk.setOnClickListener(v -> shareApkFile());
