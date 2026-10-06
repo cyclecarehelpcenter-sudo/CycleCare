@@ -230,6 +230,109 @@
 
         </LinearLayout>
 
+        <!-- My Orders Shortcut Card -->
+        <LinearLayout
+            android:id="@+id/card_my_orders"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_neu_card_raised"
+            android:orientation="horizontal"
+            android:padding="18dp"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_orders"
+                app:tint="#D81B60"
+                android:contentDescription="Orders" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="My Orders &amp; Care Deliveries"
+                    android:textColor="#000000"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Track active deliveries &amp; order history"
+                    android:textColor="@color/textSecondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_arrow_back"
+                android:rotation="180"
+                app:tint="#A0AEC0" />
+        </LinearLayout>
+
+        <!-- Saved Addresses Shortcut Card -->
+        <LinearLayout
+            android:id="@+id/card_my_addresses"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_neu_card_raised"
+            android:orientation="horizontal"
+            android:padding="18dp"
+            android:gravity="center_vertical"
+            android:clickable="true"
+            android:focusable="true">
+
+            <ImageView
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:src="@drawable/ic_location"
+                android:contentDescription="Addresses" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Delivery Addresses"
+                    android:textColor="#000000"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="Manage home, work, &amp; partner delivery locations"
+                    android:textColor="@color/textSecondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_arrow_back"
+                android:rotation="180"
+                app:tint="#A0AEC0" />
+        </LinearLayout>
+
         <!-- Share APK Section Card -->
         <LinearLayout
             android:layout_width="match_parent"

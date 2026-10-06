@@ -52,4 +52,11 @@ public class MainActivity extends AppCompatActivity {
                     .commit();
         }
     }
+
+    public void selectNavigationTab(int menuItemId) {
+        BottomNavigationView navView = findViewById(R.id.bottom_navigation);
+        if (navView != null) {
+            navView.setSelectedItemId(menuItemId);
+        }
+    }
 }

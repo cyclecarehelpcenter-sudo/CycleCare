@@ -25,6 +25,8 @@ import com.cyclecare.R;
 import com.cyclecare.cycle.PeriodLogActivity;
 import com.cyclecare.database.AppDatabase;
 import com.cyclecare.database.entity.PeriodLogEntity;
+import com.cyclecare.store.CartActivity;
+import com.cyclecare.store.CheckoutActivity;
 import com.cyclecare.wellness.AskAIAssistantActivity;
 
 import java.text.SimpleDateFormat;
@@ -87,14 +89,41 @@ public class HomeFragment extends Fragment {
 
         // Quick Row Toggles
         btnToggleActive.setOnClickListener(v -> startActivity(new Intent(getActivity(), PeriodLogActivity.class)));
-        btnToggleSymptoms.setOnClickListener(v -> Toast.makeText(getActivity(), "Symptom Logging Mode Active", Toast.LENGTH_SHORT).show());
-        btnToggleOvulation.setOnClickListener(v -> Toast.makeText(getActivity(), "Ovulation Window: Peak Fertility Approaching", Toast.LENGTH_SHORT).show());
-        btnToggleInsights.setOnClickListener(v -> Toast.makeText(getActivity(), "Encrypted Insights: All data secured on-device", Toast.LENGTH_SHORT).show());
+        btnToggleSymptoms.setOnClickListener(v -> startActivity(new Intent(getActivity(), PeriodLogActivity.class)));
+        btnToggleOvulation.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).selectNavigationTab(R.id.nav_calendar);
+            }
+        });
+        btnToggleInsights.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).selectNavigationTab(R.id.nav_profile);
+            }
+        });
 
         btnQuickLog.setOnClickListener(v -> startActivity(new Intent(getActivity(), PeriodLogActivity.class)));
-        btnPrepareNow.setOnClickListener(v -> Toast.makeText(getActivity(), "Prepare Mode: Kit supplies verified", Toast.LENGTH_SHORT).show());
-        btnViewCareKit.setOnClickListener(v -> Toast.makeText(getActivity(), "Restock Store: All items in stock", Toast.LENGTH_SHORT).show());
-        btnEmergencyMode.setOnClickListener(v -> Toast.makeText(getActivity(), "Emergency Mode: Discreet assistance ready", Toast.LENGTH_SHORT).show());
+
+        btnPrepareNow.setOnClickListener(v -> {
+            if (getActivity() instanceof MainActivity) {
+                ((MainActivity) getActivity()).selectNavigationTab(R.id.nav_store);
+            }
+        });
+
+        btnViewCareKit.setOnClickListener(v -> {
+            Intent cartIntent = new Intent(getActivity(), CartActivity.class);
+            startActivity(cartIntent);
+        });
+
+        btnEmergencyMode.setOnClickListener(v -> {
+            Intent emergencyIntent = new Intent(getActivity(), CheckoutActivity.class);
+            emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRODUCT_ID, "a1111111-1111-1111-1111-111111111111");
+            emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRODUCT_NAME, "CycleCare Emergency Comfort & Period Kit");
+            emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRICE, 149.0);
+            emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_QTY, 1);
+            emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_IMAGE, "https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80");
+            startActivity(emergencyIntent);
+        });
+
         btnAskAi.setOnClickListener(v -> startActivity(new Intent(getActivity(), AskAIAssistantActivity.class)));
 
         return view;

@@ -59,6 +59,22 @@ public class ProfileFragment extends Fragment {
             });
         }
 
+        View cardMyOrders = view.findViewById(R.id.card_my_orders);
+        if (cardMyOrders != null) {
+            cardMyOrders.setOnClickListener(v -> {
+                Intent intent = new Intent(getActivity(), com.cyclecare.store.OrdersActivity.class);
+                startActivity(intent);
+            });
+        }
+
+        View cardMyAddresses = view.findViewById(R.id.card_my_addresses);
+        if (cardMyAddresses != null) {
+            cardMyAddresses.setOnClickListener(v -> {
+                Intent intent = new Intent(getActivity(), com.cyclecare.store.AddressManagementActivity.class);
+                startActivity(intent);
+            });
+        }
+
         btnShareApk.setOnClickListener(v -> shareApkFile());
 
         btnAppSettings.setOnClickListener(v -> {

@@ -62,9 +62,20 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
             context.startActivity(intent);
         });
 
-        holder.btnAddToKit.setOnClickListener(v -> 
-            Toast.makeText(context, product.getName() + " added to Care Kit!", Toast.LENGTH_SHORT).show()
-        );
+        holder.btnAddToKit.setOnClickListener(v -> {
+            Toast.makeText(context, "✓ " + product.getName() + " added to Care Kit!", Toast.LENGTH_SHORT).show();
+            if (product.getId() != null) {
+                java.util.Map<String, Object> cartItem = new java.util.HashMap<>();
+                cartItem.put("product_id", product.getId());
+                cartItem.put("quantity", 1);
+                com.cyclecare.api.ApiClient.getApiService(context).addToCart(cartItem).enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+                    @Override
+                    public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {}
+                    @Override
+                    public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {}
+                });
+            }
+        });
     }
 
     @Override
