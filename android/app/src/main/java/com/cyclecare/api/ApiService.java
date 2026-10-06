@@ -59,6 +59,12 @@ public interface ApiService {
     @GET("store/products")
     Call<Map<String, Object>> getProducts(@Query("category_id") String categoryId, @Query("search") String search);
 
+    @GET("products/{id}")
+    Call<Map<String, Object>> getProductDetails(@Path("id") String id);
+
+    @GET("store/products/{id}")
+    Call<Map<String, Object>> getStoreProductDetails(@Path("id") String id);
+
     @GET("store/cart")
     Call<Map<String, Object>> getCart();
 

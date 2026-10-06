@@ -13,10 +13,19 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.cyclecare.R;
+import com.cyclecare.api.ApiClient;
 import com.cyclecare.models.Product;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class StoreFragment extends Fragment {
 
@@ -24,6 +33,7 @@ public class StoreFragment extends Fragment {
     private ProductAdapter adapter;
     private List<Product> allProducts = new ArrayList<>();
     private List<Product> displayedProducts = new ArrayList<>();
+    private String currentCategoryFilter = "All";
 
     @Nullable
     @Override
@@ -39,8 +49,14 @@ public class StoreFragment extends Fragment {
         Button chipHygiene = view.findViewById(R.id.chip_hygiene);
         Button chipTeas = view.findViewById(R.id.chip_teas);
 
+        adapter = new ProductAdapter(getContext(), displayedProducts);
+        rvProducts.setAdapter(adapter);
+
         loadSampleProducts();
         filterProducts("All");
+
+        // Fetch live catalog from server
+        fetchLiveProducts();
 
         chipAll.setOnClickListener(v -> filterProducts("All"));
         chipPeriodCare.setOnClickListener(v -> filterProducts("Period Care"));
@@ -49,6 +65,35 @@ public class StoreFragment extends Fragment {
         chipTeas.setOnClickListener(v -> filterProducts("Teas"));
 
         return view;
+    }
+
+    private void fetchLiveProducts() {
+        if (getContext() == null) return;
+        ApiClient.getApiService(getContext()).getProducts(null, null).enqueue(new Callback<Map<String, Object>>() {
+            @Override
+            public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Map<String, Object> body = response.body();
+                    Object productsObj = body.get("products");
+                    if (productsObj != null) {
+                        Gson gson = new Gson();
+                        String json = gson.toJson(productsObj);
+                        Type listType = new TypeToken<List<Product>>() {}.getType();
+                        List<Product> fetched = gson.fromJson(json, listType);
+                        if (fetched != null && !fetched.isEmpty()) {
+                            allProducts.clear();
+                            allProducts.addAll(fetched);
+                            filterProducts(currentCategoryFilter);
+                        }
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                // Keep sample products visible
+            }
+        });
     }
 
     private void loadSampleProducts() {
@@ -62,20 +107,19 @@ public class StoreFragment extends Fragment {
     }
 
     private void filterProducts(String category) {
+        currentCategoryFilter = category;
         displayedProducts.clear();
         if (category.equals("All")) {
             displayedProducts.addAll(allProducts);
         } else {
             for (Product p : allProducts) {
-                if (p.getCategory().equalsIgnoreCase(category)) {
+                String cat = p.getCategory();
+                if (cat != null && (cat.toLowerCase().contains(category.toLowerCase()) || category.toLowerCase().contains(cat.toLowerCase()))) {
                     displayedProducts.add(p);
                 }
             }
         }
-        if (adapter == null) {
-            adapter = new ProductAdapter(getContext(), displayedProducts);
-            rvProducts.setAdapter(adapter);
-        } else {
+        if (adapter != null) {
             adapter.notifyDataSetChanged();
         }
     }

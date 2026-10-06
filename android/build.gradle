@@ -9,6 +9,10 @@ buildscript {
     }
 }
 
+allprojects {
+    buildDir = "C:/Users/abdul/.android_build/cyclecare/${project.name}"
+}
+
 task clean(type: Delete) {
     delete rootProject.buildDir
 }

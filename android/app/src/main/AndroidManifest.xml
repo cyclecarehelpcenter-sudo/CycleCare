@@ -37,6 +37,29 @@
         <activity android:name=".wellness.AskAIAssistantActivity" android:exported="false" />
         <activity android:name=".profile.SettingsActivity" android:exported="false" />
 
+        <!-- Store Product Detail Activity with Deep Linking -->
+        <activity
+            android:name=".store.ProductDetailActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="cyclecare"
+                    android:host="product" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="cyclecare-57my.onrender.com"
+                    android:pathPrefix="/product" />
+            </intent-filter>
+        </activity>
+
         <!-- Firebase Cloud Messaging Service -->
         <service
             android:name=".notifications.CycleCareMessagingService"

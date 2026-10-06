@@ -12,8 +12,14 @@ const getCategories = async (req, res, next) => {
 
 const getProducts = async (req, res, next) => {
   try {
-    const { category_id, search, min_price, max_price } = req.query;
-    let query = supabase.from('products').select('*, categories(name)').eq('is_active', true);
+    const { category_id, search, min_price, max_price, status } = req.query;
+    let query = supabase.from('products').select('*, categories(name), product_images(*), product_variants(*)').eq('is_active', true);
+
+    if (status) {
+      query = query.eq('status', status);
+    } else {
+      query = query.or('status.eq.PUBLISHED,status.is.null');
+    }
 
     if (category_id) query = query.eq('category_id', category_id);
     if (search) query = query.ilike('name', `%${search}%`);
@@ -22,7 +28,7 @@ const getProducts = async (req, res, next) => {
 
     const { data, error } = await query.order('created_at', { ascending: false });
     if (error) throw error;
-    res.json({ success: true, products: data });
+    res.json({ success: true, count: data ? data.length : 0, products: data || [] });
   } catch (err) {
     next(err);
   }

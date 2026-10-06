@@ -1,10 +1,12 @@
 package com.cyclecare.store;
 
 import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -13,6 +15,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.cyclecare.R;
 import com.cyclecare.models.Product;
+import com.cyclecare.utils.ImageLoader;
 
 import java.util.List;
 
@@ -42,6 +45,23 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
         holder.tvCategoryTag.setText(product.getCategory());
         holder.tvStockStatus.setText(product.getStock() > 0 ? "In Stock" : "Restocking");
 
+        if (product.getImageUrl() != null && !product.getImageUrl().isEmpty()) {
+            ImageLoader.getInstance().loadImage(product.getImageUrl(), holder.ivProductIcon, R.drawable.ic_nav_store_3d);
+        } else {
+            holder.ivProductIcon.setImageResource(R.drawable.ic_nav_store_3d);
+        }
+
+        // Tapping product opens Product Detail page directly
+        holder.itemView.setOnClickListener(v -> {
+            Intent intent = new Intent(context, ProductDetailActivity.class);
+            intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_ID, product.getId());
+            intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_NAME, product.getName());
+            intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_PRICE, String.valueOf(product.getActivePrice()));
+            intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_IMAGE, product.getImageUrl());
+            intent.putExtra(ProductDetailActivity.EXTRA_PRODUCT_DESC, product.getDescription());
+            context.startActivity(intent);
+        });
+
         holder.btnAddToKit.setOnClickListener(v -> 
             Toast.makeText(context, product.getName() + " added to Care Kit!", Toast.LENGTH_SHORT).show()
         );
@@ -53,11 +73,13 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
     }
 
     static class ProductViewHolder extends RecyclerView.ViewHolder {
+        ImageView ivProductIcon;
         TextView tvName, tvDescription, tvPrice, tvCategoryTag, tvStockStatus;
         Button btnAddToKit;
 
         public ProductViewHolder(@NonNull View itemView) {
             super(itemView);
+            ivProductIcon = itemView.findViewById(R.id.iv_product_icon);
             tvName = itemView.findViewById(R.id.tv_product_name);
             tvDescription = itemView.findViewById(R.id.tv_product_description);
             tvPrice = itemView.findViewById(R.id.tv_product_price);
