@@ -7,7 +7,7 @@
     android:background="@color/colorBackground"
     android:padding="16dp">
 
-    <!-- Store Header with Action Icons -->
+    <!-- Store Header with Title and Action Icons -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -23,7 +23,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Care Kit &amp; Comfort Store"
+                android:text="CycleCare Store"
                 android:textColor="#000000"
                 android:textSize="22sp"
                 android:textStyle="bold" />
@@ -32,7 +32,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
-                android:text="Curated essentials &amp; discreet comfort kits"
+                android:text="Care essentials &amp; discreet comfort kits"
                 android:textColor="@color/textSecondary"
                 android:textSize="12sp" />
         </LinearLayout>
@@ -80,11 +80,50 @@
         </FrameLayout>
     </LinearLayout>
 
+    <!-- Search Input Bar -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="46dp"
+        android:layout_marginTop="12dp"
+        app:cardCornerRadius="23dp"
+        app:cardElevation="1dp"
+        app:cardBackgroundColor="@android:color/white">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="14dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:src="@drawable/ic_search"
+                app:tint="#718096"
+                android:contentDescription="Search Icon" />
+
+            <EditText
+                android:id="@+id/et_store_search"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_marginStart="10dp"
+                android:background="@null"
+                android:hint="Search pads, heat patches, teas, kits..."
+                android:textColor="#000000"
+                android:textColorHint="#A0AEC0"
+                android:textSize="13sp"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:maxLines="1" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
     <!-- Category Horizontal Chips Scroll -->
     <HorizontalScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="12dp"
         android:scrollbars="none">
 
         <LinearLayout
@@ -95,10 +134,10 @@
             <Button
                 android:id="@+id/chip_all"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:layout_marginEnd="8dp"
+                android:layout_height="36dp"
+                android:layout_marginEnd="6dp"
                 android:background="@drawable/bg_m3_button"
-                android:paddingHorizontal="18dp"
+                android:paddingHorizontal="16dp"
                 android:text="All Essentials"
                 android:textColor="@color/textOnPrimary"
                 android:textSize="11sp"
@@ -108,55 +147,83 @@
                 android:id="@+id/chip_period_care"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:layout_marginEnd="8dp"
-                android:paddingHorizontal="16dp"
+                android:layout_height="36dp"
+                android:layout_marginEnd="6dp"
+                android:paddingHorizontal="14dp"
                 android:text="Period Care"
                 android:textColor="#000000"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                app:cornerRadius="19dp"
+                app:cornerRadius="18dp"
                 app:strokeColor="@color/colorGlassBorder" />
 
             <Button
                 android:id="@+id/chip_comfort"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:layout_marginEnd="8dp"
-                android:paddingHorizontal="16dp"
-                android:text="Comfort Kits"
+                android:layout_height="36dp"
+                android:layout_marginEnd="6dp"
+                android:paddingHorizontal="14dp"
+                android:text="Comfort &amp; Cramps"
                 android:textColor="#000000"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                app:cornerRadius="19dp"
+                app:cornerRadius="18dp"
                 app:strokeColor="@color/colorGlassBorder" />
 
             <Button
                 android:id="@+id/chip_hygiene"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:layout_marginEnd="8dp"
-                android:paddingHorizontal="16dp"
-                android:text="Hygiene &amp; Wipes"
+                android:layout_height="36dp"
+                android:layout_marginEnd="6dp"
+                android:paddingHorizontal="14dp"
+                android:text="Personal Care &amp; Wipes"
                 android:textColor="#000000"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                app:cornerRadius="19dp"
+                app:cornerRadius="18dp"
+                app:strokeColor="@color/colorGlassBorder" />
+
+            <Button
+                android:id="@+id/chip_care_kits"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginEnd="6dp"
+                android:paddingHorizontal="14dp"
+                android:text="Care Kits"
+                android:textColor="#000000"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                app:cornerRadius="18dp"
                 app:strokeColor="@color/colorGlassBorder" />
 
             <Button
                 android:id="@+id/chip_teas"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                 android:layout_width="wrap_content"
-                android:layout_height="38dp"
-                android:paddingHorizontal="16dp"
+                android:layout_height="36dp"
+                android:layout_marginEnd="6dp"
+                android:paddingHorizontal="14dp"
                 android:text="Soothing Teas"
                 android:textColor="#000000"
                 android:textSize="11sp"
                 android:textStyle="bold"
-                app:cornerRadius="19dp"
+                app:cornerRadius="18dp"
+                app:strokeColor="@color/colorGlassBorder" />
+
+            <Button
+                android:id="@+id/chip_wellness"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:paddingHorizontal="14dp"
+                android:text="Wellness &amp; Sleep"
+                android:textColor="#000000"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                app:cornerRadius="18dp"
                 app:strokeColor="@color/colorGlassBorder" />
         </LinearLayout>
     </HorizontalScrollView>
@@ -167,7 +234,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="10dp"
         android:clipToPadding="false"
         android:paddingBottom="16dp" />
 
