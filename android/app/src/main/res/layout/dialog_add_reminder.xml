@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_bottom_sheet"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <!-- Handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:background="#CBD5E1" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="Add Cycle / Health Reminder"
+        android:textColor="#000000"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
+        android:text="Personalize reminder alerts for your health routine"
+        android:textColor="@color/textSecondary"
+        android:textSize="12sp" />
+
+    <!-- Reminder Title Input -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="REMINDER TITLE"
+        android:textColor="#000000"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.05" />
+
+    <EditText
+        android:id="@+id/et_reminder_title"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:layout_marginTop="6dp"
+        android:background="@drawable/bg_neu_card_raised"
+        android:hint="e.g. Take Iron Tablet, Drink Warm Water"
+        android:paddingHorizontal="14dp"
+        android:textColor="#000000"
+        android:textColorHint="#94A3B8"
+        android:textSize="14sp" />
+
+    <!-- Time Selection Row -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="ALERT TIME"
+        android:textColor="#000000"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.05" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_time_midnight"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_m3_button"
+            android:text="12:00 AM 🌙"
+            android:textColor="@color/textOnPrimary"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btn_time_morning"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="9:00 AM ☀️"
+            android:textColor="#000000"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            app:cornerRadius="20dp"
+            app:strokeColor="@color/colorBorder" />
+
+        <Button
+            android:id="@+id/btn_time_night"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="40dp"
+            android:layout_weight="1"
+            android:text="9:00 PM 🍵"
+            android:textColor="#000000"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            app:cornerRadius="20dp"
+            app:strokeColor="@color/colorBorder" />
+    </LinearLayout>
+
+    <!-- Save Button -->
+    <Button
+        android:id="@+id/btn_save_reminder"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="24dp"
+        android:background="@drawable/bg_m3_button"
+        android:text="Save &amp; Set Reminder ✓"
+        android:textColor="@color/textOnPrimary"
+        android:textSize="13sp"
+        android:textStyle="bold" />
+
+</LinearLayout>

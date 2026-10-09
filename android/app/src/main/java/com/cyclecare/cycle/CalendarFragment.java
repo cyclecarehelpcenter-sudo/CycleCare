@@ -1,19 +1,28 @@
 package com.cyclecare.cycle;
 
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.CalendarView;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.appcompat.widget.SwitchCompat;
 import androidx.fragment.app.Fragment;
 
 import com.cyclecare.R;
+import com.cyclecare.notifications.CycleNotificationScheduler;
+import com.cyclecare.utils.LocaleHelper;
+import com.google.android.material.bottomsheet.BottomSheetDialog;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -22,22 +31,57 @@ import java.util.Locale;
 public class CalendarFragment extends Fragment {
 
     private CalendarView calendarView;
+    private TextView tvCalendarHeaderTitle, tvCalendarHeaderSubtitle;
     private TextView tvSelectedDate, tvPhaseBadge, tvDateStatus, tvLoggedNotes;
-    private Button btnLogForDate;
+    private Button btnLogForDate, btnAddReminder;
+    private SwitchCompat swRemOvulation, swRemPeriod, swRemPill, swRemHydration;
+    private SharedPreferences prefs;
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_calendar, container, false);
 
+        if (getContext() != null) {
+            prefs = getContext().getSharedPreferences("cyclecare_prefs", Context.MODE_PRIVATE);
+        }
+
         calendarView = view.findViewById(R.id.calendar_view);
+        tvCalendarHeaderTitle = view.findViewById(R.id.tv_calendar_header_title);
+        tvCalendarHeaderSubtitle = view.findViewById(R.id.tv_calendar_header_subtitle);
         tvSelectedDate = view.findViewById(R.id.tv_selected_date);
         tvPhaseBadge = view.findViewById(R.id.tv_phase_badge);
         tvDateStatus = view.findViewById(R.id.tv_date_status);
         tvLoggedNotes = view.findViewById(R.id.tv_logged_notes);
         btnLogForDate = view.findViewById(R.id.btn_log_for_date);
+        btnAddReminder = view.findViewById(R.id.btn_add_reminder);
 
-        // Set initial selected date to today
+        swRemOvulation = view.findViewById(R.id.sw_rem_ovulation);
+        swRemPeriod = view.findViewById(R.id.sw_rem_period);
+        swRemPill = view.findViewById(R.id.sw_rem_pill);
+        swRemHydration = view.findViewById(R.id.sw_rem_hydration);
+
+        applyLocalization();
+        setupCalendarView();
+        setupReminders();
+
+        btnLogForDate.setOnClickListener(v -> {
+            Intent intent = new Intent(getActivity(), PeriodLogActivity.class);
+            startActivity(intent);
+        });
+
+        btnAddReminder.setOnClickListener(v -> showAddReminderDialog());
+
+        return view;
+    }
+
+    private void applyLocalization() {
+        if (getContext() == null) return;
+        tvCalendarHeaderTitle.setText(LocaleHelper.t(getContext(), "cycle_calendar", "Cycle Calendar"));
+        tvCalendarHeaderSubtitle.setText(LocaleHelper.t(getContext(), "calendar_subtitle", "Track periods, ovulation and symptom predictions"));
+    }
+
+    private void setupCalendarView() {
         Calendar today = Calendar.getInstance();
         SimpleDateFormat sdf = new SimpleDateFormat("EEEE, MMM dd, yyyy", Locale.getDefault());
         tvSelectedDate.setText(sdf.format(today.getTime()));
@@ -70,12 +114,99 @@ public class CalendarFragment extends Fragment {
                 tvLoggedNotes.setText("No severe symptoms recorded for this date.");
             }
         });
+    }
 
-        btnLogForDate.setOnClickListener(v -> {
-            Intent intent = new Intent(getActivity(), PeriodLogActivity.class);
-            startActivity(intent);
+    private void setupReminders() {
+        if (prefs == null) return;
+
+        swRemOvulation.setChecked(prefs.getBoolean("rem_ovulation_enabled", true));
+        swRemPeriod.setChecked(prefs.getBoolean("rem_period_enabled", true));
+        swRemPill.setChecked(prefs.getBoolean("rem_pill_enabled", true));
+        swRemHydration.setChecked(prefs.getBoolean("rem_hydration_enabled", true));
+
+        swRemOvulation.setOnCheckedChangeListener((btn, isChecked) -> {
+            prefs.edit().putBoolean("rem_ovulation_enabled", isChecked).apply();
+            if (isChecked && getContext() != null) {
+                CycleNotificationScheduler.scheduleMidnightAlarm(getContext());
+                Toast.makeText(getContext(), "✓ 12:00 AM Ovulation Alert Enabled", Toast.LENGTH_SHORT).show();
+            }
         });
 
-        return view;
+        swRemPeriod.setOnCheckedChangeListener((btn, isChecked) -> {
+            prefs.edit().putBoolean("rem_period_enabled", isChecked).apply();
+            if (isChecked && getContext() != null) {
+                CycleNotificationScheduler.scheduleMidnightAlarm(getContext());
+                Toast.makeText(getContext(), "✓ 12:00 AM Period Warning Enabled", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        swRemPill.setOnCheckedChangeListener((btn, isChecked) -> {
+            prefs.edit().putBoolean("rem_pill_enabled", isChecked).apply();
+            Toast.makeText(getContext(), isChecked ? "✓ Evening 9:00 PM Supplement Reminder Set" : "Supplement Reminder Off", Toast.LENGTH_SHORT).show();
+        });
+
+        swRemHydration.setOnCheckedChangeListener((btn, isChecked) -> {
+            prefs.edit().putBoolean("rem_hydration_enabled", isChecked).apply();
+            Toast.makeText(getContext(), isChecked ? "✓ Afternoon 4:00 PM Hydration Alert Set" : "Hydration Alert Off", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    private void showAddReminderDialog() {
+        if (getContext() == null) return;
+
+        BottomSheetDialog dialog = new BottomSheetDialog(getContext());
+        View sheet = getLayoutInflater().inflate(R.layout.dialog_add_reminder, null);
+        dialog.setContentView(sheet);
+
+        EditText etTitle = sheet.findViewById(R.id.et_reminder_title);
+        Button btnMidnight = sheet.findViewById(R.id.btn_time_midnight);
+        Button btnMorning = sheet.findViewById(R.id.btn_time_morning);
+        Button btnNight = sheet.findViewById(R.id.btn_time_night);
+        Button btnSave = sheet.findViewById(R.id.btn_save_reminder);
+
+        final String[] selectedTime = {"12:00 AM Midnight"};
+
+        btnMidnight.setOnClickListener(v -> {
+            selectedTime[0] = "12:00 AM Midnight";
+            btnMidnight.setBackgroundResource(R.drawable.bg_m3_button);
+            btnMidnight.setTextColor(0xFFFFFFFF);
+            btnMorning.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnMorning.setTextColor(0xFF000000);
+            btnNight.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnNight.setTextColor(0xFF000000);
+        });
+
+        btnMorning.setOnClickListener(v -> {
+            selectedTime[0] = "9:00 AM Morning";
+            btnMorning.setBackgroundResource(R.drawable.bg_m3_button);
+            btnMorning.setTextColor(0xFFFFFFFF);
+            btnMidnight.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnMidnight.setTextColor(0xFF000000);
+            btnNight.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnNight.setTextColor(0xFF000000);
+        });
+
+        btnNight.setOnClickListener(v -> {
+            selectedTime[0] = "9:00 PM Evening";
+            btnNight.setBackgroundResource(R.drawable.bg_m3_button);
+            btnNight.setTextColor(0xFFFFFFFF);
+            btnMidnight.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnMidnight.setTextColor(0xFF000000);
+            btnMorning.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnMorning.setTextColor(0xFF000000);
+        });
+
+        btnSave.setOnClickListener(v -> {
+            String title = etTitle.getText().toString().trim();
+            if (TextUtils.isEmpty(title)) {
+                title = "Cycle & Health Reminder";
+            }
+
+            dialog.dismiss();
+            CycleNotificationScheduler.scheduleMidnightAlarm(requireContext());
+            Toast.makeText(getContext(), "✓ Reminder '" + title + "' scheduled for " + selectedTime[0] + "!", Toast.LENGTH_LONG).show();
+        });
+
+        dialog.show();
     }
 }

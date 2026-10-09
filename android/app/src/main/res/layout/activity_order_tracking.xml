@@ -67,108 +67,76 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Simulated Live Map Card -->
+        <!-- Real World Google Map Card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
-            android:layout_height="220dp"
+            android:layout_height="250dp"
             android:layout_marginTop="16dp"
             app:cardCornerRadius="16dp"
             app:cardElevation="3dp"
-            app:cardBackgroundColor="#E2E8F0"
             app:strokeColor="#CBD5E1"
             app:strokeWidth="1dp">
 
-            <RelativeLayout
+            <FrameLayout
                 android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:background="#EDF2F7">
+                android:layout_height="match_parent">
 
-                <!-- Grid Background lines simulation -->
-                <View
+                <!-- Real Interactive Google MapView -->
+                <com.google.android.gms.maps.MapView
+                    android:id="@+id/map_view"
                     android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_centerVertical="true"
-                    android:background="#CBD5E1" />
+                    android:layout_height="match_parent" />
 
-                <!-- Route Line -->
-                <View
-                    android:id="@+id/view_route_line"
-                    android:layout_width="match_parent"
-                    android:layout_height="6dp"
-                    android:layout_centerVertical="true"
-                    android:layout_marginHorizontal="40dp"
-                    android:background="#93C5FD" />
-
-                <!-- Courier Pin / Indicator -->
-                <LinearLayout
-                    android:id="@+id/layout_courier_marker"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_centerVertical="true"
-                    android:layout_marginStart="140dp"
-                    android:gravity="center"
-                    android:orientation="vertical">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="#E91E63"
-                        android:paddingHorizontal="8dp"
-                        android:paddingVertical="3dp"
-                        android:text="Courier • En Route"
-                        android:textColor="#FFFFFF"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-
-                    <View
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
-                        android:layout_marginTop="4dp"
-                        android:background="#E91E63" />
-                </LinearLayout>
-
-                <!-- Destination Marker -->
+                <!-- Top Map Overlay Pill -->
                 <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_alignParentEnd="true"
-                    android:layout_centerVertical="true"
-                    android:layout_marginEnd="32dp"
-                    android:gravity="center"
-                    android:orientation="vertical">
+                    android:layout_gravity="top|start"
+                    android:layout_margin="10dp"
+                    android:background="#D90F172A"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="5dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <View
+                        android:layout_width="8dp"
+                        android:layout_height="8dp"
+                        android:background="#22C55E" />
 
                     <TextView
+                        android:id="@+id/tv_map_live_badge"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:background="#16A34A"
-                        android:paddingHorizontal="8dp"
-                        android:paddingVertical="3dp"
-                        android:text="Destination"
+                        android:layout_marginStart="6dp"
+                        android:text="GPS Live Real-World Map"
                         android:textColor="#FFFFFF"
                         android:textSize="10sp"
                         android:textStyle="bold" />
-
-                    <View
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
-                        android:layout_marginTop="4dp"
-                        android:background="#16A34A" />
                 </LinearLayout>
 
-                <!-- Map Mode Tag -->
-                <TextView
+                <!-- Bottom Floating Route Info Pill -->
+                <LinearLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_alignParentBottom="true"
-                    android:layout_alignParentStart="true"
-                    android:layout_margin="12dp"
-                    android:background="#E2E8F0"
-                    android:paddingHorizontal="8dp"
-                    android:paddingVertical="4dp"
-                    android:text="Simulated GPS Live Feed"
-                    android:textColor="#475569"
-                    android:textSize="11sp" />
-            </RelativeLayout>
+                    android:layout_gravity="bottom|end"
+                    android:layout_margin="10dp"
+                    android:background="#E6FFFFFF"
+                    android:paddingHorizontal="12dp"
+                    android:paddingVertical="6dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/tv_map_distance_eta"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🚴 1.4 km away • 12 mins"
+                        android:textColor="#0F172A"
+                        android:textSize="11sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </FrameLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <!-- Delivery OTP Verification Box -->

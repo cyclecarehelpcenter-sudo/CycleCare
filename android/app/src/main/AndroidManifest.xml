@@ -129,6 +129,16 @@
             </intent-filter>
         </service>
 
+        <!-- Midnight Cycle Phase Receiver -->
+        <receiver
+            android:name=".notifications.MidnightCycleReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="com.cyclecare.ACTION_MIDNIGHT_CYCLE_ALERT" />
+            </intent-filter>
+        </receiver>
+
         <!-- Test Notification Receiver -->
         <receiver
             android:name=".notifications.NotificationTestReceiver"
