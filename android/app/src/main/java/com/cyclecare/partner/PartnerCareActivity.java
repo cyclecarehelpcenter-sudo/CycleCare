@@ -124,6 +124,16 @@ public class PartnerCareActivity extends AppCompatActivity {
         llConnectedView = findViewById(R.id.ll_connected_view);
         tvPartnerName = findViewById(R.id.tv_partner_name);
         tvPartnerHandle = findViewById(R.id.tv_partner_handle);
+        Button btnOpenCircleChat = findViewById(R.id.btn_open_circle_chat);
+        if (btnOpenCircleChat != null) {
+            btnOpenCircleChat.setOnClickListener(v -> {
+                Intent chatIntent = new Intent(this, com.cyclecare.chat.CircleChatActivity.class);
+                chatIntent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_CONNECTION_ID, currentConnectionId != null ? currentConnectionId : "demo-circle-connection");
+                chatIntent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_CONTACT_NAME, currentPartnerName != null ? currentPartnerName : "Husband / Partner");
+                chatIntent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_RELATIONSHIP, "Partner");
+                startActivity(chatIntent);
+            });
+        }
         btnSendCarePackage = findViewById(R.id.btn_send_care_package);
         btnManagePermissions = findViewById(R.id.btn_manage_permissions);
         btnDisconnectPartner = findViewById(R.id.btn_disconnect_partner);

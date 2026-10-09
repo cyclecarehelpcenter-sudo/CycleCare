@@ -205,15 +205,28 @@
                     </LinearLayout>
 
                     <Button
-                        android:id="@+id/btn_send_care_package"
+                        android:id="@+id/btn_open_circle_chat"
                         android:layout_width="match_parent"
                         android:layout_height="50dp"
                         android:layout_marginTop="16dp"
                         android:background="@drawable/bg_m3_button"
-                        android:text="🎁 Send Care Package"
+                        android:text="💬 Open Circle Care Chat"
                         android:textColor="@color/textOnPrimary"
                         android:textSize="14sp"
                         android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btn_send_care_package"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="match_parent"
+                        android:layout_height="48dp"
+                        android:layout_marginTop="8dp"
+                        android:text="🎁 Send Care Package"
+                        android:textColor="@color/colorPrimary"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        app:cornerRadius="24dp"
+                        app:strokeColor="@color/colorPrimary" />
 
                     <LinearLayout
                         android:layout_width="match_parent"

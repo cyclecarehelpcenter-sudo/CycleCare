@@ -196,4 +196,20 @@ public interface ApiService {
 
     @POST("delivery/demo/reset")
     Call<Map<String, Object>> resetDemoDelivery();
+
+    // Circle Care Chat & Care/Medical Item Sharing
+    @GET("chat/contacts")
+    Call<Map<String, Object>> getCircleContacts();
+
+    @GET("chat/quick-items")
+    Call<Map<String, Object>> getQuickCareItems();
+
+    @GET("chat/messages/{connection_id}")
+    Call<Map<String, Object>> getChatMessages(@Path("connection_id") String connectionId);
+
+    @POST("chat/send")
+    Call<Map<String, Object>> sendChatMessage(@Body Map<String, Object> body);
+
+    @POST("chat/send-item")
+    Call<Map<String, Object>> sendChatCareItem(@Body Map<String, Object> body);
 }

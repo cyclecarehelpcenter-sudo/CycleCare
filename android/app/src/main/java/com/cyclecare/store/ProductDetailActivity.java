@@ -75,6 +75,16 @@ public class ProductDetailActivity extends AppCompatActivity {
                 startActivity(cartIntent);
             });
         }
+        View cardPartnerCare = findViewById(R.id.card_partner_care);
+        if (cardPartnerCare != null) {
+            cardPartnerCare.setOnClickListener(v -> {
+                Intent chatIntent = new Intent(ProductDetailActivity.this, com.cyclecare.chat.CircleChatActivity.class);
+                chatIntent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_CONTACT_NAME, "Husband / Partner");
+                chatIntent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_RELATIONSHIP, "Partner");
+                startActivity(chatIntent);
+                Toast.makeText(ProductDetailActivity.this, "Opening Circle Care Chat to share item...", Toast.LENGTH_SHORT).show();
+            });
+        }
     }
 
     @Override

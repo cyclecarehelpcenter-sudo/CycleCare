@@ -59,6 +59,14 @@ public class ProfileFragment extends Fragment {
             });
         }
 
+        View cardCircleChat = view.findViewById(R.id.card_circle_chat);
+        if (cardCircleChat != null) {
+            cardCircleChat.setOnClickListener(v -> {
+                Intent intent = new Intent(getActivity(), com.cyclecare.chat.CircleChatActivity.class);
+                startActivity(intent);
+            });
+        }
+
         View cardMyOrders = view.findViewById(R.id.card_my_orders);
         if (cardMyOrders != null) {
             cardMyOrders.setOnClickListener(v -> {

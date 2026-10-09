@@ -335,9 +335,13 @@
 
             <!-- Partner Care Mode Banner -->
             <androidx.cardview.widget.CardView
+                android:id="@+id/card_partner_care"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
                 app:cardCornerRadius="12dp"
                 app:cardElevation="1dp"
                 app:cardBackgroundColor="#FCE4EC">

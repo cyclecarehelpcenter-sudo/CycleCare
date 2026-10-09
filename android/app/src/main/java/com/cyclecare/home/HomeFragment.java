@@ -126,6 +126,14 @@ public class HomeFragment extends Fragment {
 
         btnAskAi.setOnClickListener(v -> startActivity(new Intent(getActivity(), AskAIAssistantActivity.class)));
 
+        View btnHomeCircleChat = view.findViewById(R.id.btn_home_circle_chat);
+        if (btnHomeCircleChat != null) {
+            btnHomeCircleChat.setOnClickListener(v -> {
+                Intent chatIntent = new Intent(getActivity(), com.cyclecare.chat.CircleChatActivity.class);
+                startActivity(chatIntent);
+            });
+        }
+
         return view;
     }
 

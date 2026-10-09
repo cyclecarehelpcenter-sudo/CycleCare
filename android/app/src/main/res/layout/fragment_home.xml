@@ -507,6 +507,18 @@
                 app:strokeColor="@color/colorSkyBlueDark" />
         </LinearLayout>
 
+        <!-- Circle Care Chat Shortcut -->
+        <Button
+            android:id="@+id/btn_home_circle_chat"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_m3_button"
+            android:text="💬 Chat with Husband / Circle (Request Care)"
+            android:textColor="@color/textOnPrimary"
+            android:textSize="13sp"
+            android:textStyle="bold" />
+
         <!-- Invisible compatibility views -->
         <View android:id="@+id/btn_mood_happy" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
         <View android:id="@+id/btn_mood_good" android:layout_width="0dp" android:layout_height="0dp" android:visibility="gone" />
