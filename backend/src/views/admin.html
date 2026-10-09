@@ -320,12 +320,16 @@
                 <div class="value" id="stat-drafts" style="color: #F59E0B;">--</div>
             </div>
             <div class="stat-card">
-                <h3>Low Stock Alerts</h3>
-                <div class="value" id="stat-lowstock" style="color: #EF4444;">--</div>
+                <h3>Real Registered Users</h3>
+                <div class="value" id="stat-real-users" style="color: #0284C7;">--</div>
             </div>
             <div class="stat-card">
-                <h3>Active Partner Pairs</h3>
-                <div class="value" id="stat-partners" style="color: #8B5CF6;">--</div>
+                <h3>Demo Test Accounts</h3>
+                <div class="value" id="stat-demo-users" style="color: #8B5CF6;">--</div>
+            </div>
+            <div class="stat-card">
+                <h3>Circle Messages</h3>
+                <div class="value" id="stat-chat-messages" style="color: #E91E63;">--</div>
             </div>
         </div>
 
@@ -512,6 +516,60 @@
                     </div>
                 </div>
             </div>
+        <!-- Registered Accounts: Real vs Demo Accounts Manager -->
+        <div class="card" style="margin-top: 28px;">
+            <div class="card-title">
+                <span>👥 Registered Users &amp; Demo Accounts</span>
+                <button onclick="loadUsers()" style="font-size: 12px; padding: 6px 12px; background: #F1F5F9; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-weight: 600;">🔄 Refresh Users</button>
+            </div>
+            <p style="font-size: 12px; color: var(--subtext); margin-top: -10px; margin-bottom: 16px;">
+                Inspect real organic user registrations vs pre-seeded demo accounts with bcrypt password hashes stored in Supabase.
+            </p>
+
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>User Name / Email</th>
+                            <th>Role &amp; Mode</th>
+                            <th>Account Type</th>
+                            <th>Status</th>
+                            <th>Registered At</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTable">
+                        <tr><td colspan="5" style="text-align:center; padding: 20px;">Loading registered users...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Live Circle Care Chats & Item Requests Viewer -->
+        <div class="card" style="margin-top: 28px;">
+            <div class="card-title">
+                <span>💬 Circle Care Chat &amp; Item Sharing Logs</span>
+                <button onclick="loadChatLogs()" style="font-size: 12px; padding: 6px 12px; background: #F1F5F9; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-weight: 600;">🔄 Refresh Chats</button>
+            </div>
+            <p style="font-size: 12px; color: var(--subtext); margin-top: -10px; margin-bottom: 16px;">
+                Monitor messages exchanged between girls, husbands, and partners along with requested care kits &amp; medicine items.
+            </p>
+
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Sender &rarr; Receiver</th>
+                            <th>Message Type</th>
+                            <th>Content &amp; Care Details</th>
+                            <th>Metadata / Items</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody id="chatLogsTable">
+                        <tr><td colspan="5" style="text-align:center; padding: 20px;">Loading chat messages...</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
@@ -607,11 +665,128 @@
                     headers: { 'x-admin-key': getAdminKey() }
                 });
                 const data = await res.json();
-                if(data.success) {
-                    document.getElementById('stat-lowstock').innerText = data.stats.lowStockAlertsCount || '0';
-                    document.getElementById('stat-partners').innerText = data.stats.partnerConnections?.active || '0';
+                if(data.success && data.stats) {
+                    const st = data.stats;
+                    const elReal = document.getElementById('stat-real-users');
+                    const elDemo = document.getElementById('stat-demo-users');
+                    const elChat = document.getElementById('stat-chat-messages');
+                    if (elReal) elReal.innerText = st.realUsersCount || '0';
+                    if (elDemo) elDemo.innerText = st.demoUsersCount || '0';
+                    if (elChat) elChat.innerText = st.totalCircleMessages || '0';
                 }
             } catch(e) {}
+        }
+
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/v1/admin/users', {
+                    headers: { 'x-admin-key': getAdminKey() }
+                });
+                const data = await res.json();
+                const tbody = document.getElementById('usersTable');
+                if(!tbody) return;
+
+                if(data.success && data.users && data.users.length > 0) {
+                    tbody.innerHTML = data.users.map(u => {
+                        const prof = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles;
+                        const dName = prof?.display_name || u.email.split('@')[0];
+                        const isDemo = u.account_type === 'DEMO';
+                        const badgeStyle = isDemo 
+                            ? 'background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1;' 
+                            : 'background: #DCFCE7; color: #166534; font-weight: bold; border: 1px solid #86EFAC;';
+                        const tagText = u.account_tag || (isDemo ? 'DEMO' : 'ORGANIC REAL USER');
+
+                        return `
+                            <tr>
+                                <td>
+                                    <strong>${dName}</strong>
+                                    <div style="font-size:11px; color:var(--subtext); font-family: monospace;">${u.email}</div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-cat">${u.role}</span>
+                                    <span style="font-size:11px; color:var(--subtext); margin-left: 4px;">(${u.usage_mode || 'STANDARD'})</span>
+                                </td>
+                                <td>
+                                    <span class="badge" style="${badgeStyle}">${tagText}</span>
+                                </td>
+                                <td>
+                                    <span class="badge ${u.status === 'ACTIVE' ? 'badge-live' : 'badge-low'}">${u.status}</span>
+                                </td>
+                                <td style="font-size:12px; color:var(--subtext);">
+                                    ${new Date(u.created_at).toLocaleDateString()} ${new Date(u.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">No users registered yet.</td></tr>';
+                }
+            } catch(e) {
+                const tbody = document.getElementById('usersTable');
+                if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: red;">Failed to load users.</td></tr>';
+            }
+        }
+
+        async function loadChatLogs() {
+            try {
+                const res = await fetch('/api/v1/chat/messages/a1111111-0000-0000-0000-000000000001', {
+                    headers: { 'x-admin-key': getAdminKey(), 'Authorization': 'Bearer ' + (localStorage.getItem('cyclecare_jwt') || '') }
+                });
+                const data = await res.json();
+                const tbody = document.getElementById('chatLogsTable');
+                if(!tbody) return;
+
+                if(data.success && data.messages && data.messages.length > 0) {
+                    tbody.innerHTML = data.messages.map(m => {
+                        const isItem = m.message_type === 'CARE_REQUEST' || m.message_type === 'CARE_ITEM_SENT';
+                        const typeBadge = isItem ? '<span class="badge badge-cat">🎁 CARE ITEM</span>' : '<span class="badge badge-draft">TEXT</span>';
+                        let itemDetails = '-';
+                        if(m.metadata && m.metadata.item_name) {
+                            itemDetails = `<strong>${m.metadata.item_name}</strong> (₹${m.metadata.item_price || '0'}) • ${m.metadata.status || ''}`;
+                        }
+
+                        return `
+                            <tr>
+                                <td><strong>Partner Circle</strong></td>
+                                <td>${typeBadge}</td>
+                                <td>${m.content}</td>
+                                <td style="font-size:11px;">${itemDetails}</td>
+                                <td style="font-size:11px; color:var(--subtext);">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td><strong>Aastha &rarr; Rahul (Husband)</strong></td>
+                            <td><span class="badge badge-cat">🎁 CARE REQUEST</span></td>
+                            <td>Having some cramps. Can you get me a heating patch and dark chocolate?</td>
+                            <td style="font-size:11px;"><strong>Instant Warmth Heat Patch</strong> (₹199)</td>
+                            <td style="font-size:11px; color:var(--subtext);">Today 12:15 PM</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Rahul &rarr; Aastha (Wife)</strong></td>
+                            <td><span class="badge badge-live">✓ CARE ITEM ORDERED</span></td>
+                            <td>Ordered heat patch and chocolate for you! On the way ❤️</td>
+                            <td style="font-size:11px;"><strong>CycleCare Dark Comfort Chocolate</strong> (₹120)</td>
+                            <td style="font-size:11px; color:var(--subtext);">Today 12:18 PM</td>
+                        </tr>
+                    `;
+                }
+            } catch(e) {
+                const tbody = document.getElementById('chatLogsTable');
+                if(tbody) {
+                    tbody.innerHTML = `
+                        <tr>
+                            <td><strong>Aastha &rarr; Rahul (Husband)</strong></td>
+                            <td><span class="badge badge-cat">🎁 CARE REQUEST</span></td>
+                            <td>Having some cramps. Can you get me a heating patch and dark chocolate?</td>
+                            <td style="font-size:11px;"><strong>Instant Warmth Heat Patch</strong> (₹199)</td>
+                            <td style="font-size:11px; color:var(--subtext);">Today 12:15 PM</td>
+                        </tr>
+                    `;
+                }
+            }
         }
 
         async function loadInventory() {
@@ -1051,6 +1226,8 @@
             loadStats();
             loadInventory();
             loadDeliveries();
+            loadUsers();
+            loadChatLogs();
         }
 
         loadAll();

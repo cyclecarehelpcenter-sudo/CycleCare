@@ -212,4 +212,17 @@ public interface ApiService {
 
     @POST("chat/send-item")
     Call<Map<String, Object>> sendChatCareItem(@Body Map<String, Object> body);
+
+    // Social Follow / Following & User Search
+    @GET("chat/users/search")
+    Call<Map<String, Object>> searchUsers(@Query("query") String query);
+
+    @POST("chat/users/follow")
+    Call<Map<String, Object>> followUser(@Body Map<String, String> body);
+
+    @POST("chat/users/unfollow")
+    Call<Map<String, Object>> unfollowUser(@Body Map<String, String> body);
+
+    @GET("chat/users/{userId}/social-stats")
+    Call<Map<String, Object>> getUserSocialStats(@Path("userId") String userId);
 }

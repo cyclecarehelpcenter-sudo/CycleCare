@@ -104,8 +104,31 @@ public class LoginActivity extends AppCompatActivity {
 
         btnLogin.setOnClickListener(v -> performLogin());
 
+        // Quick Demo Accounts Fill & Login
+        Button btnDemoGirl = findViewById(R.id.btn_demo_girl_login);
+        if (btnDemoGirl != null) {
+            btnDemoGirl.setOnClickListener(v -> {
+                etEmail.setText("demo@cyclecare.com");
+                etPassword.setText("password123");
+                Toast.makeText(LoginActivity.this, "🌸 Logging in as Aastha (Girl)...", Toast.LENGTH_SHORT).show();
+                performLogin();
+            });
+        }
+
+        Button btnDemoHusband = findViewById(R.id.btn_demo_husband_login);
+        if (btnDemoHusband != null) {
+            btnDemoHusband.setOnClickListener(v -> {
+                etEmail.setText("husband.demo@cyclecare.app");
+                etPassword.setText("password123");
+                Toast.makeText(LoginActivity.this, "👨 Logging in as Rahul (Husband)...", Toast.LENGTH_SHORT).show();
+                performLogin();
+            });
+        }
+
         Button btnDemoDelivery = findViewById(R.id.btn_demo_delivery_login);
-        btnDemoDelivery.setOnClickListener(v -> performDeliveryLogin());
+        if (btnDemoDelivery != null) {
+            btnDemoDelivery.setOnClickListener(v -> performDeliveryLogin());
+        }
 
         tvGoRegister.setOnClickListener(v -> {
             startActivity(new Intent(LoginActivity.this, RegisterActivity.class));

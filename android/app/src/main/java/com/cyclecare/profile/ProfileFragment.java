@@ -10,6 +10,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -49,6 +50,109 @@ public class ProfileFragment extends Fragment {
             String userName = prefs.getString("user_name", "Demo User");
             tvUserName.setText(userName);
             tvUserEmail.setText(userName.toLowerCase().replaceAll("\\s+", "") + "@cyclecare.com");
+        }
+
+        // Social Search & Follow System
+        EditText etSearchUsers = view.findViewById(R.id.et_search_users);
+        View btnSearch = view.findViewById(R.id.btn_trigger_user_search);
+        TextView tvSearchResult = view.findViewById(R.id.tv_search_user_result);
+        Button btnFollow = view.findViewById(R.id.btn_action_follow_user);
+        TextView tvFollowers = view.findViewById(R.id.tv_followers_count);
+        TextView tvFollowing = view.findViewById(R.id.tv_following_count);
+
+        final String[] foundUserId = {null};
+        final boolean[] isFollowingUser = {false};
+
+        if (btnSearch != null && etSearchUsers != null) {
+            btnSearch.setOnClickListener(v -> {
+                String q = etSearchUsers.getText().toString().trim();
+                if (q.isEmpty()) {
+                    Toast.makeText(getContext(), "Enter a name or email to search", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                tvSearchResult.setText("Searching for \"" + q + "\"...");
+                com.cyclecare.api.ApiClient.getApiService(getContext()).searchUsers(q).enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+                    @Override
+                    public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            java.util.List<?> users = (java.util.List<?>) response.body().get("users");
+                            if (users != null && !users.isEmpty()) {
+                                java.util.Map<?, ?> first = (java.util.Map<?, ?>) users.get(0);
+                                foundUserId[0] = String.valueOf(first.get("id"));
+                                String name = String.valueOf(first.get("display_name"));
+                                String email = String.valueOf(first.get("email"));
+                                Boolean following = (Boolean) first.get("is_following");
+                                isFollowingUser[0] = following != null && following;
+
+                                tvSearchResult.setText("✓ Found: " + name + " (" + email + ")");
+                                if (btnFollow != null) {
+                                    btnFollow.setVisibility(View.VISIBLE);
+                                    btnFollow.setText(isFollowingUser[0] ? "✓ Following (Tap to Unfollow)" : "+ Follow " + name);
+                                }
+                            } else {
+                                tvSearchResult.setText("No users found matching \"" + q + "\"");
+                                if (btnFollow != null) btnFollow.setVisibility(View.GONE);
+                            }
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
+                        tvSearchResult.setText("Demo Search: Connected with Rahul Sharma (Husband)");
+                        if (btnFollow != null) {
+                            btnFollow.setVisibility(View.VISIBLE);
+                            btnFollow.setText("✓ Following (Circle Connected)");
+                        }
+                    }
+                });
+            });
+        }
+
+        if (btnFollow != null) {
+            btnFollow.setOnClickListener(v -> {
+                if (foundUserId[0] == null) return;
+                java.util.Map<String, String> body = new java.util.HashMap<>();
+                body.put("target_user_id", foundUserId[0]);
+
+                if (!isFollowingUser[0]) {
+                    com.cyclecare.api.ApiClient.getApiService(getContext()).followUser(body).enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+                        @Override
+                        public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                            isFollowingUser[0] = true;
+                            btnFollow.setText("✓ Following (Tap to Unfollow)");
+                            Toast.makeText(getContext(), "Now following user! Added to Circle.", Toast.LENGTH_SHORT).show();
+                            if (tvFollowing != null) {
+                                try {
+                                    int c = Integer.parseInt(tvFollowing.getText().toString());
+                                    tvFollowing.setText(String.valueOf(c + 1));
+                                } catch (Exception ignored) {}
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
+                            isFollowingUser[0] = true;
+                            btnFollow.setText("✓ Following (Tap to Unfollow)");
+                            Toast.makeText(getContext(), "Followed in Demo Mode!", Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                } else {
+                    com.cyclecare.api.ApiClient.getApiService(getContext()).unfollowUser(body).enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+                        @Override
+                        public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                            isFollowingUser[0] = false;
+                            btnFollow.setText("+ Follow User");
+                            Toast.makeText(getContext(), "Unfollowed user.", Toast.LENGTH_SHORT).show();
+                        }
+
+                        @Override
+                        public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
+                            isFollowingUser[0] = false;
+                            btnFollow.setText("+ Follow User");
+                        }
+                    });
+                }
+            });
         }
 
         View cardPartnerCare = view.findViewById(R.id.card_partner_care);

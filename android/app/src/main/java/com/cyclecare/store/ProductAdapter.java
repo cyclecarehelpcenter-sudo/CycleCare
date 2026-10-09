@@ -98,13 +98,43 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
             context.startActivity(intent);
         });
 
+        // Quantity Stepper for Card
+        final int[] itemQty = {1};
+        holder.tvCardQty.setText("1");
+
+        holder.btnCardQtyMinus.setOnClickListener(v -> {
+            if (itemQty[0] > 1) {
+                itemQty[0]--;
+                holder.tvCardQty.setText(String.valueOf(itemQty[0]));
+            }
+        });
+
+        holder.btnCardQtyPlus.setOnClickListener(v -> {
+            itemQty[0]++;
+            holder.tvCardQty.setText(String.valueOf(itemQty[0]));
+        });
+
         // Add to Cart
         holder.btnAddToKit.setOnClickListener(v -> {
-            Toast.makeText(context, "✓ " + product.getName() + " added to Cart!", Toast.LENGTH_SHORT).show();
+            int qtyToAdd = itemQty[0];
+            Toast.makeText(context, "✓ " + qtyToAdd + "x " + product.getName() + " added to Cart!", Toast.LENGTH_SHORT).show();
+
+            // Save in local SharedPreferences cart backup so cart works 100% offline & instant
+            try {
+                android.content.SharedPreferences sp = context.getSharedPreferences("cyclecare_local_cart", android.content.Context.MODE_PRIVATE);
+                int existing = sp.getInt("qty_" + product.getId(), 0);
+                sp.edit()
+                    .putInt("qty_" + product.getId(), existing + qtyToAdd)
+                    .putString("name_" + product.getId(), product.getName())
+                    .putFloat("price_" + product.getId(), (float) product.getActivePrice())
+                    .putString("img_" + product.getId(), product.getImageUrl() != null ? product.getImageUrl() : "")
+                    .apply();
+            } catch (Exception ignored) {}
+
             if (product.getId() != null) {
                 java.util.Map<String, Object> cartItem = new java.util.HashMap<>();
                 cartItem.put("product_id", product.getId());
-                cartItem.put("quantity", 1);
+                cartItem.put("quantity", qtyToAdd);
                 com.cyclecare.api.ApiClient.getApiService(context).addToCart(cartItem).enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
                     @Override
                     public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
@@ -113,7 +143,11 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
                         }
                     }
                     @Override
-                    public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {}
+                    public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
+                        if (cartUpdatedListener != null) {
+                            cartUpdatedListener.onCartUpdated();
+                        }
+                    }
                 });
             }
         });
@@ -128,6 +162,7 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
         ImageView ivProductIcon;
         ImageButton btnWishlist;
         TextView tvBrand, tvRating, tvName, tvPrice, tvMrp, tvCategoryTag, tvStockStatus;
+        TextView btnCardQtyMinus, tvCardQty, btnCardQtyPlus;
         Button btnAddToKit;
 
         public ProductViewHolder(@NonNull View itemView) {
@@ -141,6 +176,9 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.ProductV
             tvMrp = itemView.findViewById(R.id.tv_product_mrp);
             tvCategoryTag = itemView.findViewById(R.id.tv_category_tag);
             tvStockStatus = itemView.findViewById(R.id.tv_stock_status);
+            btnCardQtyMinus = itemView.findViewById(R.id.btn_card_qty_minus);
+            tvCardQty = itemView.findViewById(R.id.tv_card_qty);
+            btnCardQtyPlus = itemView.findViewById(R.id.btn_card_qty_plus);
             btnAddToKit = itemView.findViewById(R.id.btn_add_to_kit);
         }
     }

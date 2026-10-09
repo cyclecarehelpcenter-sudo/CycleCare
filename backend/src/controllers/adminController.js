@@ -7,10 +7,24 @@ const getDashboardStats = async (req, res, next) => {
     const { data: paidOrders } = await supabase.from('orders').select('total_amount').eq('status', 'PAID');
     const { data: lowStockProducts } = await supabase.from('products').select('*').lte('stock', 5);
 
+    // Count Real vs Demo accounts
+    const { data: allUsers } = await supabase.from('users').select('email');
+    const demoEmails = ['admin@cyclecare.app', 'demo@cyclecare.com', 'husband.demo@cyclecare.app', 'delivery.demo@cyclecare.app', 'newuser@cyclecare.com'];
+    let demoCount = 0;
+    let realCount = 0;
+    (allUsers || []).forEach(u => {
+      if (demoEmails.includes(u.email) || u.email.includes('demo') || u.email.endsWith('@cyclecare.com') || u.email.endsWith('@cyclecare.app')) {
+        demoCount++;
+      } else {
+        realCount++;
+      }
+    });
+
     // Partner Connections Aggregate Metrics (Privacy-Safe: Zero Health Data)
     const { count: totalPartnerConnections } = await supabase.from('partner_connections').select('*', { count: 'exact', head: true });
     const { count: activePartnerConnections } = await supabase.from('partner_connections').select('*', { count: 'exact', head: true }).eq('status', 'ACCEPTED');
     const { count: pendingPartnerRequests } = await supabase.from('partner_connections').select('*', { count: 'exact', head: true }).eq('status', 'PENDING');
+    const { count: totalCircleMessages } = await supabase.from('circle_messages').select('*', { count: 'exact', head: true });
 
     const totalRevenue = (paidOrders || []).reduce((acc, curr) => acc + Number(curr.total_amount), 0);
 
@@ -18,9 +32,12 @@ const getDashboardStats = async (req, res, next) => {
       success: true,
       stats: {
         totalUsers: totalUsers || 0,
+        realUsersCount: realCount,
+        demoUsersCount: demoCount,
         totalOrders: totalOrders || 0,
         totalRevenue,
         lowStockAlertsCount: lowStockProducts ? lowStockProducts.length : 0,
+        totalCircleMessages: totalCircleMessages || 0,
         partnerConnections: {
           total: totalPartnerConnections || 0,
           active: activePartnerConnections || 0,
@@ -38,11 +55,29 @@ const getUsers = async (req, res, next) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, role, status, created_at, profiles(display_name)')
+      .select('id, email, role, status, usage_mode, created_at, profiles(display_name)')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    res.json({ success: true, users: data });
+
+    const demoEmails = ['admin@cyclecare.app', 'demo@cyclecare.com', 'husband.demo@cyclecare.app', 'delivery.demo@cyclecare.app', 'newuser@cyclecare.com'];
+    const tagged = (data || []).map(u => {
+      const isDemo = demoEmails.includes(u.email) || u.email.includes('demo') || u.email.endsWith('@cyclecare.com') || u.email.endsWith('@cyclecare.app');
+      let accountTag = 'REAL USER';
+      if (u.email === 'admin@cyclecare.app') accountTag = 'DEMO ADMIN';
+      else if (u.email === 'demo@cyclecare.com') accountTag = 'DEMO GIRL';
+      else if (u.email === 'husband.demo@cyclecare.app') accountTag = 'DEMO HUSBAND';
+      else if (u.email === 'delivery.demo@cyclecare.app') accountTag = 'DEMO COURIER';
+      else if (isDemo) accountTag = 'DEMO USER';
+
+      return {
+        ...u,
+        account_type: isDemo ? 'DEMO' : 'REAL',
+        account_tag: accountTag
+      };
+    });
+
+    res.json({ success: true, users: tagged });
   } catch (err) {
     next(err);
   }

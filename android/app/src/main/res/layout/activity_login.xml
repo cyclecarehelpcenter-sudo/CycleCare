@@ -198,18 +198,75 @@
             android:textSize="14sp"
             android:textStyle="bold" />
 
-        <Button
-            android:id="@+id/btn_demo_delivery_login"
+        <!-- 1-Tap Demo Accounts Selector -->
+        <TextView
             android:layout_width="wrap_content"
-            android:layout_height="52dp"
-            android:layout_marginBottom="32dp"
-            android:background="@drawable/neu_input"
-            android:paddingHorizontal="24dp"
-            android:text="🚴 Demo Delivery Agent Mode"
-            android:textColor="#334155"
-            android:textSize="14sp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="QUICK 1-TAP DEMO LOGINS"
+            android:textColor="#64748B"
+            android:textSize="11sp"
             android:textStyle="bold"
-            app:backgroundTint="@null" />
+            android:letterSpacing="0.08" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <!-- Demo 1: Girl (Aastha) -->
+            <Button
+                android:id="@+id/btn_demo_girl_login"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_neu_card_raised"
+                android:text="🌸 Girl (Aastha)"
+                android:textColor="#E91E63"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                app:backgroundTint="@null" />
+
+            <!-- Demo 2: Husband (Rahul) -->
+            <Button
+                android:id="@+id/btn_demo_husband_login"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_neu_card_raised"
+                android:text="👨 Husband (Rahul)"
+                android:textColor="#2563EB"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                app:backgroundTint="@null" />
+
+            <!-- Demo 3: Delivery Courier -->
+            <Button
+                android:id="@+id/btn_demo_delivery_login"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_neu_card_raised"
+                android:text="🚴 Delivery Agent"
+                android:textColor="#059669"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                app:backgroundTint="@null" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_admin_panel_hint"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="28dp"
+            android:text="💻 Website Admin: admin@cyclecare.app • AdminPassword123!"
+            android:textColor="#64748B"
+            android:textSize="11sp" />
 
     </LinearLayout>
 </ScrollView>

@@ -100,10 +100,15 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.OnCar
                     List<CartItem> parsed = gson.fromJson(json, listType);
 
                     cartItems.clear();
-                    if (parsed != null) cartItems.addAll(parsed);
+                    if (parsed != null && !parsed.isEmpty()) {
+                        cartItems.addAll(parsed);
+                    } else {
+                        loadLocalCartFallback();
+                    }
                     adapter.setItems(cartItems);
                     updateTotalsUI();
                 } else {
+                    loadLocalCartFallback();
                     updateTotalsUI();
                 }
             }
@@ -111,10 +116,40 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.OnCar
             @Override
             public void onFailure(Call<Map<String, Object>> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
-                Toast.makeText(CartActivity.this, "Network issue loading cart", Toast.LENGTH_SHORT).show();
+                loadLocalCartFallback();
                 updateTotalsUI();
             }
         });
+    }
+
+    private void loadLocalCartFallback() {
+        if (!cartItems.isEmpty()) return;
+        try {
+            android.content.SharedPreferences sp = getSharedPreferences("cyclecare_local_cart", MODE_PRIVATE);
+            Map<String, ?> all = sp.getAll();
+            for (Map.Entry<String, ?> entry : all.entrySet()) {
+                if (entry.getKey().startsWith("qty_") && entry.getValue() instanceof Integer) {
+                    int q = (Integer) entry.getValue();
+                    if (q > 0) {
+                        String pId = entry.getKey().substring(4);
+                        String name = sp.getString("name_" + pId, "CycleCare Care Item");
+                        float price = sp.getFloat("price_" + pId, 199.0f);
+                        String img = sp.getString("img_" + pId, "");
+
+                        CartItem item = new CartItem();
+                        item.setId(pId);
+                        item.setProductId(pId);
+                        item.setProductName(name);
+                        item.setUnitPrice(price);
+                        item.setQuantity(q);
+                        item.setImageUrl(img);
+                        item.setItemTotal(price * q);
+                        cartItems.add(item);
+                    }
+                }
+            }
+            if (adapter != null) adapter.setItems(cartItems);
+        } catch (Exception ignored) {}
     }
 
     private void updateTotalsUI() {

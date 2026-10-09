@@ -376,12 +376,124 @@ const sendCareItem = async (req, res, next) => {
   }
 };
 
-// 5. Get Quick Care Catalog
-const getQuickCareItems = (req, res) => {
-  res.json({
-    success: true,
-    items: QUICK_CARE_ITEMS
-  });
+// 6. Search Users by name or email
+const searchUsers = async (req, res, next) => {
+  try {
+    const { query } = req.query;
+    const currentUserId = req.user.id;
+
+    if (!query || query.trim().length === 0) {
+      return res.json({ success: true, users: [] });
+    }
+
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id, email, role, profiles(display_name, profile_image)')
+      .or(`email.ilike.%${query.trim()}%,profiles.display_name.ilike.%${query.trim()}%`)
+      .neq('id', currentUserId)
+      .limit(20);
+
+    if (error) throw error;
+
+    // Fetch following status for each user
+    const { data: follows } = await supabase
+      .from('user_follows')
+      .select('following_id')
+      .eq('follower_id', currentUserId);
+
+    const followingSet = new Set((follows || []).map(f => f.following_id));
+
+    const mapped = (users || []).map(u => {
+      const prof = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles;
+      return {
+        id: u.id,
+        email: u.email,
+        display_name: prof?.display_name || u.email.split('@')[0],
+        profile_image: prof?.profile_image || null,
+        is_following: followingSet.has(u.id)
+      };
+    });
+
+    res.json({ success: true, users: mapped });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 7. Follow User
+const followUser = async (req, res, next) => {
+  try {
+    const followerId = req.user.id;
+    const { target_user_id } = req.body;
+
+    if (!target_user_id) {
+      return res.status(400).json({ success: false, message: 'target_user_id required' });
+    }
+    if (followerId === target_user_id) {
+      return res.status(400).json({ success: false, message: 'Cannot follow yourself' });
+    }
+
+    const { error } = await supabase
+      .from('user_follows')
+      .upsert([{ follower_id: followerId, following_id: target_user_id }], { onConflict: 'follower_id, following_id' });
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'User followed successfully', is_following: true });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 8. Unfollow User
+const unfollowUser = async (req, res, next) => {
+  try {
+    const followerId = req.user.id;
+    const { target_user_id } = req.body;
+
+    if (!target_user_id) {
+      return res.status(400).json({ success: false, message: 'target_user_id required' });
+    }
+
+    const { error } = await supabase
+      .from('user_follows')
+      .delete()
+      .eq('follower_id', followerId)
+      .eq('following_id', target_user_id);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: 'User unfollowed successfully', is_following: false });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 9. Get User Social Stats (Followers / Following counts)
+const getUserSocialStats = async (req, res, next) => {
+  try {
+    const targetUserId = req.params.userId || req.user.id;
+
+    const { count: followersCount } = await supabase
+      .from('user_follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('following_id', targetUserId);
+
+    const { count: followingCount } = await supabase
+      .from('user_follows')
+      .select('*', { count: 'exact', head: true })
+      .eq('follower_id', targetUserId);
+
+    res.json({
+      success: true,
+      stats: {
+        followers: followersCount || 0,
+        following: followingCount || 0
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
 };
 
 module.exports = {
@@ -389,5 +501,9 @@ module.exports = {
   getMessages,
   sendMessage,
   sendCareItem,
-  getQuickCareItems
+  getQuickCareItems,
+  searchUsers,
+  followUser,
+  unfollowUser,
+  getUserSocialStats
 };
