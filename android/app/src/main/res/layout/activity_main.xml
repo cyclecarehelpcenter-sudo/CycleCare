@@ -16,11 +16,13 @@
         android:layout_width="match_parent"
         android:layout_height="64dp"
         android:layout_alignParentBottom="true"
-        android:background="@color/colorSurface"
+        android:background="#FFFFFF"
         app:elevation="8dp"
-        app:itemIconSize="30dp"
-        app:itemIconTint="@null"
-        app:labelVisibilityMode="unlabeled"
+        app:itemIconSize="24dp"
+        app:itemIconTint="@color/nav_item_tint"
+        app:itemTextColor="@color/nav_item_tint"
+        app:itemRippleColor="#1AE91E63"
+        app:labelVisibilityMode="labeled"
         app:menu="@menu/bottom_nav_menu" />
 
 </RelativeLayout>

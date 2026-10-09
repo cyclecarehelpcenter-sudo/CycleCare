@@ -631,6 +631,90 @@ const getUserSocialStats = async (req, res, next) => {
   }
 };
 
+// 10. Get Followers List
+const getFollowers = async (req, res, next) => {
+  try {
+    const targetUserId = req.params.userId || req.user.id;
+    const currentUserId = req.user.id;
+
+    const { data: rows, error } = await supabase
+      .from('user_follows')
+      .select('follower_id, created_at, follower:follower_id(id, email, cyclecare_id, role, profiles(display_name, avatar_url))')
+      .eq('following_id', targetUserId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Check which ones the current user is following back
+    const followerIds = (rows || []).map(r => r.follower_id);
+    let myFollowings = new Set();
+    if (followerIds.length > 0) {
+      const { data: followingRows } = await supabase
+        .from('user_follows')
+        .select('following_id')
+        .eq('follower_id', currentUserId)
+        .in('following_id', followerIds);
+      if (followingRows) {
+        myFollowings = new Set(followingRows.map(f => f.following_id));
+      }
+    }
+
+    const followers = (rows || []).map(r => {
+      const u = r.follower || {};
+      const prof = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles;
+      const name = prof?.display_name || u.email?.split('@')[0] || 'User';
+      return {
+        id: u.id || r.follower_id,
+        display_name: name,
+        email: u.email || '',
+        avatar_url: prof?.avatar_url || null,
+        is_following: myFollowings.has(r.follower_id),
+        is_me: r.follower_id === currentUserId,
+        followed_at: r.created_at
+      };
+    });
+
+    res.json({ success: true, count: followers.length, users: followers });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 11. Get Following List
+const getFollowing = async (req, res, next) => {
+  try {
+    const targetUserId = req.params.userId || req.user.id;
+    const currentUserId = req.user.id;
+
+    const { data: rows, error } = await supabase
+      .from('user_follows')
+      .select('following_id, created_at, following:following_id(id, email, cyclecare_id, role, profiles(display_name, avatar_url))')
+      .eq('follower_id', targetUserId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const following = (rows || []).map(r => {
+      const u = r.following || {};
+      const prof = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles;
+      const name = prof?.display_name || u.email?.split('@')[0] || 'User';
+      return {
+        id: u.id || r.following_id,
+        display_name: name,
+        email: u.email || '',
+        avatar_url: prof?.avatar_url || null,
+        is_following: true,
+        is_me: r.following_id === currentUserId,
+        followed_at: r.created_at
+      };
+    });
+
+    res.json({ success: true, count: following.length, users: following });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getContacts,
   getMessages,
@@ -641,5 +725,7 @@ module.exports = {
   followUser,
   unfollowUser,
   getUserSocialStats,
+  getFollowers,
+  getFollowing,
   setContactTag
 };

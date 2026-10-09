@@ -252,6 +252,46 @@ public class ProfileFragment extends Fragment {
             });
         }
 
+        // Load Real Follower & Following Stats from DB
+        Runnable refreshStats = () -> {
+            com.cyclecare.api.ApiClient.getApiService(getContext()).getUserSocialStats("me").enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+                @Override
+                public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                    if (response.isSuccessful() && response.body() != null) {
+                        java.util.Map<?, ?> stats = (java.util.Map<?, ?>) response.body().get("stats");
+                        if (stats != null) {
+                            Object followers = stats.get("followers");
+                            Object following = stats.get("following");
+                            if (tvFollowers != null && followers != null) {
+                                tvFollowers.setText(String.valueOf(followers));
+                            }
+                            if (tvFollowing != null && following != null) {
+                                tvFollowing.setText(String.valueOf(following));
+                            }
+                        }
+                    }
+                }
+
+                @Override
+                public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
+                    // Fallback to local count if offline
+                }
+            });
+        };
+        refreshStats.run();
+
+        // Followers Box Click -> Show Real Followers List Dialog
+        View llFollowersBox = view.findViewById(R.id.ll_followers_box);
+        if (llFollowersBox != null) {
+            llFollowersBox.setOnClickListener(v -> showSocialUsersDialog(true, refreshStats));
+        }
+
+        // Following Box Click -> Show Real Following List Dialog
+        View llFollowingBox = view.findViewById(R.id.ll_following_box);
+        if (llFollowingBox != null) {
+            llFollowingBox.setOnClickListener(v -> showSocialUsersDialog(false, refreshStats));
+        }
+
         if (btnFollow != null) {
             btnFollow.setOnClickListener(v -> {
                 if (foundUserId[0] == null) return;
@@ -265,12 +305,7 @@ public class ProfileFragment extends Fragment {
                             isFollowingUser[0] = true;
                             btnFollow.setText("✓ Following (Tap to Unfollow)");
                             Toast.makeText(getContext(), "Now following user! Added to Circle.", Toast.LENGTH_SHORT).show();
-                            if (tvFollowing != null) {
-                                try {
-                                    int c = Integer.parseInt(tvFollowing.getText().toString());
-                                    tvFollowing.setText(String.valueOf(c + 1));
-                                } catch (Exception ignored) {}
-                            }
+                            refreshStats.run();
                         }
 
                         @Override
@@ -278,6 +313,7 @@ public class ProfileFragment extends Fragment {
                             isFollowingUser[0] = true;
                             btnFollow.setText("✓ Following (Tap to Unfollow)");
                             Toast.makeText(getContext(), "Followed in Demo Mode!", Toast.LENGTH_SHORT).show();
+                            refreshStats.run();
                         }
                     });
                 } else {
@@ -287,12 +323,14 @@ public class ProfileFragment extends Fragment {
                             isFollowingUser[0] = false;
                             btnFollow.setText("+ Follow User");
                             Toast.makeText(getContext(), "Unfollowed user.", Toast.LENGTH_SHORT).show();
+                            refreshStats.run();
                         }
 
                         @Override
                         public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
                             isFollowingUser[0] = false;
                             btnFollow.setText("+ Follow User");
+                            refreshStats.run();
                         }
                     });
                 }
@@ -387,5 +425,76 @@ public class ProfileFragment extends Fragment {
                 out.write(buf, 0, len);
             }
         }
+    }
+
+    private void showSocialUsersDialog(boolean isFollowers, Runnable onDismissRefresh) {
+        if (getContext() == null) return;
+        com.google.android.material.bottomsheet.BottomSheetDialog dialog =
+                new com.google.android.material.bottomsheet.BottomSheetDialog(requireContext());
+        View sheetView = LayoutInflater.from(getContext()).inflate(R.layout.dialog_social_users, null);
+        dialog.setContentView(sheetView);
+
+        TextView tvTitle = sheetView.findViewById(R.id.tv_dialog_social_title);
+        TextView tvCount = sheetView.findViewById(R.id.tv_dialog_social_count);
+        View btnClose = sheetView.findViewById(R.id.btn_close_social_dialog);
+        android.widget.ProgressBar progressBar = sheetView.findViewById(R.id.pb_social_loading);
+        TextView tvEmpty = sheetView.findViewById(R.id.tv_social_empty);
+        androidx.recyclerview.widget.RecyclerView rvUsers = sheetView.findViewById(R.id.rv_social_users);
+
+        tvTitle.setText(isFollowers ? "👥 Followers" : "✨ Following");
+        rvUsers.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(getContext()));
+
+        if (btnClose != null) {
+            btnClose.setOnClickListener(v -> dialog.dismiss());
+        }
+
+        retrofit2.Call<java.util.Map<String, Object>> call = isFollowers ?
+                com.cyclecare.api.ApiClient.getApiService(getContext()).getFollowers("me") :
+                com.cyclecare.api.ApiClient.getApiService(getContext()).getFollowing("me");
+
+        call.enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+            @Override
+            public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                if (progressBar != null) progressBar.setVisibility(View.GONE);
+                if (response.isSuccessful() && response.body() != null) {
+                    java.util.List<java.util.Map<String, Object>> usersList =
+                            (java.util.List<java.util.Map<String, Object>>) response.body().get("users");
+                    if (usersList != null && !usersList.isEmpty()) {
+                        tvCount.setText("(" + usersList.size() + ")");
+                        tvEmpty.setVisibility(View.GONE);
+                        rvUsers.setVisibility(View.VISIBLE);
+                        SocialUsersAdapter adapter = new SocialUsersAdapter(getContext(), usersList, isFollowers, () -> {
+                            if (onDismissRefresh != null) onDismissRefresh.run();
+                        });
+                        rvUsers.setAdapter(adapter);
+                    } else {
+                        tvCount.setText("(0)");
+                        rvUsers.setVisibility(View.GONE);
+                        tvEmpty.setVisibility(View.VISIBLE);
+                        tvEmpty.setText(isFollowers ? "You don't have any followers yet." : "You are not following anyone yet.");
+                    }
+                } else {
+                    tvCount.setText("(0)");
+                    rvUsers.setVisibility(View.GONE);
+                    tvEmpty.setVisibility(View.VISIBLE);
+                    tvEmpty.setText("Unable to load users. Please check connection.");
+                }
+            }
+
+            @Override
+            public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
+                if (progressBar != null) progressBar.setVisibility(View.GONE);
+                tvCount.setText("(0)");
+                rvUsers.setVisibility(View.GONE);
+                tvEmpty.setVisibility(View.VISIBLE);
+                tvEmpty.setText("Offline or network error.");
+            }
+        });
+
+        dialog.setOnDismissListener(d -> {
+            if (onDismissRefresh != null) onDismissRefresh.run();
+        });
+
+        dialog.show();
     }
 }

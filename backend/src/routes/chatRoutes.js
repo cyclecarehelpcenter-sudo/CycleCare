@@ -25,6 +25,8 @@ router.get('/users/search', chatController.searchUsers);
 router.post('/users/follow', chatController.followUser);
 router.post('/users/unfollow', chatController.unfollowUser);
 router.get('/users/:userId/social-stats', chatController.getUserSocialStats);
+router.get('/users/:userId/followers', chatController.getFollowers);
+router.get('/users/:userId/following', chatController.getFollowing);
 router.post('/set-tag', chatController.setContactTag);
 
 module.exports = router;
