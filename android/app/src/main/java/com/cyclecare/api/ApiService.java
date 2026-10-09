@@ -225,4 +225,7 @@ public interface ApiService {
 
     @GET("chat/users/{userId}/social-stats")
     Call<Map<String, Object>> getUserSocialStats(@Path("userId") String userId);
+
+    @POST("chat/set-tag")
+    Call<Map<String, Object>> setContactTag(@Body Map<String, String> body);
 }

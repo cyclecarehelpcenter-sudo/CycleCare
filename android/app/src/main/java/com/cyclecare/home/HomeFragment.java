@@ -129,7 +129,7 @@ public class HomeFragment extends Fragment {
         View btnHomeChat = view.findViewById(R.id.btn_home_chat);
         if (btnHomeChat != null) {
             btnHomeChat.setOnClickListener(v -> {
-                Intent chatIntent = new Intent(getActivity(), com.cyclecare.chat.CircleChatActivity.class);
+                Intent chatIntent = new Intent(getActivity(), com.cyclecare.chat.CircleConversationsActivity.class);
                 startActivity(chatIntent);
             });
         }
@@ -146,7 +146,7 @@ public class HomeFragment extends Fragment {
         View btnHomeCircleChat = view.findViewById(R.id.btn_home_circle_chat);
         if (btnHomeCircleChat != null) {
             btnHomeCircleChat.setOnClickListener(v -> {
-                Intent chatIntent = new Intent(getActivity(), com.cyclecare.chat.CircleChatActivity.class);
+                Intent chatIntent = new Intent(getActivity(), com.cyclecare.chat.CircleConversationsActivity.class);
                 startActivity(chatIntent);
             });
         }

@@ -102,6 +102,18 @@
         <activity android:name=".store.OrdersActivity" android:exported="false" />
         <activity android:name=".store.OrderDetailActivity" android:exported="false" />
 
+        <!-- Circle Care WhatsApp-Style Conversations List -->
+        <activity
+            android:name=".chat.CircleConversationsActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="cyclecare" android:host="conversations" />
+            </intent-filter>
+        </activity>
+
         <!-- Circle Care Chat & Item Sharing -->
         <activity
             android:name=".chat.CircleChatActivity"

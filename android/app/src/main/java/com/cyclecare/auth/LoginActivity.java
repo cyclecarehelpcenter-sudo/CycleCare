@@ -118,9 +118,9 @@ public class LoginActivity extends AppCompatActivity {
         Button btnDemoHusband = findViewById(R.id.btn_demo_husband_login);
         if (btnDemoHusband != null) {
             btnDemoHusband.setOnClickListener(v -> {
-                etEmail.setText("husband.demo@cyclecare.app");
+                etEmail.setText("aman.husband@cyclecare.app");
                 etPassword.setText("password123");
-                Toast.makeText(LoginActivity.this, "👨 Logging in as Rahul (Husband)...", Toast.LENGTH_SHORT).show();
+                Toast.makeText(LoginActivity.this, "👨 Logging in as Aman (Husband)...", Toast.LENGTH_SHORT).show();
                 performLogin();
             });
         }

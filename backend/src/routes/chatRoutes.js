@@ -20,10 +20,11 @@ router.post('/send', chatController.sendMessage);
 // Send or request a care / medical item in chat
 router.post('/send-item', chatController.sendCareItem);
 
-// Social User Search & Follow/Following
+// Social User Search & Follow/Following & Tagging
 router.get('/users/search', chatController.searchUsers);
 router.post('/users/follow', chatController.followUser);
 router.post('/users/unfollow', chatController.unfollowUser);
 router.get('/users/:userId/social-stats', chatController.getUserSocialStats);
+router.post('/set-tag', chatController.setContactTag);
 
 module.exports = router;

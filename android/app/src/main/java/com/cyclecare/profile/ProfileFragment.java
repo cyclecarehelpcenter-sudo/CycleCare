@@ -57,10 +57,14 @@ public class ProfileFragment extends Fragment {
         View btnSearch = view.findViewById(R.id.btn_trigger_user_search);
         TextView tvSearchResult = view.findViewById(R.id.tv_search_user_result);
         Button btnFollow = view.findViewById(R.id.btn_action_follow_user);
+        Button btnSetTag = view.findViewById(R.id.btn_action_set_tag);
+        Button btnChatNow = view.findViewById(R.id.btn_action_chat_now);
         TextView tvFollowers = view.findViewById(R.id.tv_followers_count);
         TextView tvFollowing = view.findViewById(R.id.tv_following_count);
 
         final String[] foundUserId = {null};
+        final String[] foundUserName = {"Circle Partner"};
+        final String[] userTag = {"Partner"};
         final boolean[] isFollowingUser = {false};
 
         if (btnSearch != null && etSearchUsers != null) {
@@ -80,31 +84,81 @@ public class ProfileFragment extends Fragment {
                                 java.util.Map<?, ?> first = (java.util.Map<?, ?>) users.get(0);
                                 foundUserId[0] = String.valueOf(first.get("id"));
                                 String name = String.valueOf(first.get("display_name"));
+                                foundUserName[0] = name;
                                 String email = String.valueOf(first.get("email"));
                                 Boolean following = (Boolean) first.get("is_following");
                                 isFollowingUser[0] = following != null && following;
 
-                                tvSearchResult.setText("✓ Found: " + name + " (" + email + ")");
+                                tvSearchResult.setText("✓ " + name + " (" + email + ")");
                                 if (btnFollow != null) {
                                     btnFollow.setVisibility(View.VISIBLE);
-                                    btnFollow.setText(isFollowingUser[0] ? "✓ Following (Tap to Unfollow)" : "+ Follow " + name);
+                                    btnFollow.setText(isFollowingUser[0] ? "✓ Following" : "+ Follow");
                                 }
+                                if (btnSetTag != null) btnSetTag.setVisibility(View.VISIBLE);
+                                if (btnChatNow != null) btnChatNow.setVisibility(View.VISIBLE);
                             } else {
                                 tvSearchResult.setText("No users found matching \"" + q + "\"");
                                 if (btnFollow != null) btnFollow.setVisibility(View.GONE);
+                                if (btnSetTag != null) btnSetTag.setVisibility(View.GONE);
+                                if (btnChatNow != null) btnChatNow.setVisibility(View.GONE);
                             }
                         }
                     }
 
                     @Override
                     public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
-                        tvSearchResult.setText("Demo Search: Connected with Rahul Sharma (Husband)");
-                        if (btnFollow != null) {
-                            btnFollow.setVisibility(View.VISIBLE);
-                            btnFollow.setText("✓ Following (Circle Connected)");
-                        }
+                        tvSearchResult.setText("Demo Search: Aman Sharma (Husband)");
+                        foundUserId[0] = "10f31e6e-cbb7-465d-b820-8b215b74852e";
+                        foundUserName[0] = "Aman Sharma";
+                        if (btnFollow != null) btnFollow.setVisibility(View.VISIBLE);
+                        if (btnSetTag != null) btnSetTag.setVisibility(View.VISIBLE);
+                        if (btnChatNow != null) btnChatNow.setVisibility(View.VISIBLE);
                     }
                 });
+            });
+        }
+
+        if (btnSetTag != null) {
+            btnSetTag.setOnClickListener(v -> {
+                if (foundUserId[0] == null) return;
+                final String[] tagOptions = new String[]{"Husband ❤️", "Wife 🌸", "Best Friend 💕", "Sister 🌷", "Mother 👵", "Partner 💍", "Doctor 🩺"};
+                new android.app.AlertDialog.Builder(getContext())
+                        .setTitle("🏷️ Set Relationship Tag for " + foundUserName[0])
+                        .setItems(tagOptions, (dialog, which) -> {
+                            String selected = tagOptions[which];
+                            userTag[0] = selected;
+
+                            java.util.Map<String, String> body = new java.util.HashMap<>();
+                            body.put("target_user_id", foundUserId[0]);
+                            body.put("tag", selected);
+
+                            com.cyclecare.api.ApiClient.getApiService(getContext()).setContactTag(body).enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+                                @Override
+                                public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                                    Toast.makeText(getContext(), "✓ Assigned tag: " + selected, Toast.LENGTH_SHORT).show();
+                                    tvSearchResult.setText(foundUserName[0] + " • Tag: " + selected);
+                                }
+
+                                @Override
+                                public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
+                                    Toast.makeText(getContext(), "Tag updated in demo mode: " + selected, Toast.LENGTH_SHORT).show();
+                                    tvSearchResult.setText(foundUserName[0] + " • Tag: " + selected);
+                                }
+                            });
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            });
+        }
+
+        if (btnChatNow != null) {
+            btnChatNow.setOnClickListener(v -> {
+                if (foundUserId[0] == null) return;
+                Intent intent = new Intent(getActivity(), com.cyclecare.chat.CircleChatActivity.class);
+                intent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_CONTACT_NAME, foundUserName[0]);
+                intent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_RELATIONSHIP, userTag[0]);
+                intent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_PARTNER_USER_ID, foundUserId[0]);
+                startActivity(intent);
             });
         }
 

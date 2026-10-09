@@ -89,8 +89,60 @@ public class CircleChatActivity extends AppCompatActivity {
         setupRecyclerView();
         setupQuickChips();
         loadCatalog();
-        loadMessages();
+
+        if (connectionId == null || connectionId.equals("demo-circle-connection")) {
+            resolveRealConnectionAndLoad();
+        } else {
+            loadMessages();
+        }
+
         startPolling();
+    }
+
+    private void resolveRealConnectionAndLoad() {
+        apiService.getCircleContacts().enqueue(new Callback<Map<String, Object>>() {
+            @Override
+            public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Object contactsObj = response.body().get("contacts");
+                    if (contactsObj != null) {
+                        Type type = new TypeToken<List<CircleContact>>() {}.getType();
+                        List<CircleContact> list = gson.fromJson(gson.toJson(contactsObj), type);
+                        if (list != null && !list.isEmpty()) {
+                            // Find Aman if possible, or take the first real contact
+                            CircleContact target = list.get(0);
+                            for (CircleContact c : list) {
+                                if (c.getDisplayName().toLowerCase().contains("aman")) {
+                                    target = c;
+                                    break;
+                                }
+                            }
+                            connectionId = target.getConnectionId();
+                            contactName = target.getDisplayName();
+                            relationship = target.getRelationship();
+                            partnerUserId = target.getUserId();
+
+                            updateHeaderUI();
+                            loadMessages();
+                            return;
+                        }
+                    }
+                }
+                loadMessages();
+            }
+
+            @Override
+            public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                loadMessages();
+            }
+        });
+    }
+
+    private void updateHeaderUI() {
+        if (tvContactName != null) tvContactName.setText(contactName);
+        if (tvRelationshipBadge != null) tvRelationshipBadge.setText(relationship + " ❤️");
+        if (tvAvatarLetter != null) tvAvatarLetter.setText(contactName.isEmpty() ? "P" : contactName.substring(0, 1).toUpperCase());
+        if (chatAdapter != null) chatAdapter.notifyDataSetChanged();
     }
 
     private void initViews() {
@@ -236,6 +288,20 @@ public class CircleChatActivity extends AppCompatActivity {
     }
 
     private void sendQuickCareItem(String name, int price, String category, String imageUrl, String note) {
+        // Immediate optimistic UI card
+        ChatMessage optimistic = new ChatMessage("local_" + System.currentTimeMillis(), note, true, "CARE_REQUEST");
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("item_name", name);
+        meta.put("item_price", price);
+        meta.put("item_category", category);
+        meta.put("item_image", imageUrl);
+        meta.put("status", "REQUESTED");
+        optimistic.setMetadata(meta);
+        optimistic.setCreatedAt(new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date()));
+        messageList.add(optimistic);
+        chatAdapter.notifyItemInserted(messageList.size() - 1);
+        rvMessages.scrollToPosition(messageList.size() - 1);
+
         Map<String, Object> body = new HashMap<>();
         body.put("connection_id", connectionId);
         body.put("receiver_id", partnerUserId);
@@ -246,13 +312,12 @@ public class CircleChatActivity extends AppCompatActivity {
         body.put("is_request", true);
         body.put("note", note);
 
-        Toast.makeText(this, "Sending care request to " + contactName + "...", Toast.LENGTH_SHORT).show();
+        Toast.makeText(this, "✓ Requesting " + name + "...", Toast.LENGTH_SHORT).show();
 
         apiService.sendChatCareItem(body).enqueue(new Callback<Map<String, Object>>() {
             @Override
             public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
                 loadMessages();
-                Toast.makeText(CircleChatActivity.this, "✓ Care request sent in chat!", Toast.LENGTH_SHORT).show();
             }
             @Override
             public void onFailure(Call<Map<String, Object>> call, Throwable t) {}
@@ -281,7 +346,24 @@ public class CircleChatActivity extends AppCompatActivity {
             @Override
             public void onSend(QuickCareItem item) {
                 dialog.dismiss();
-                // Send as gift/item
+
+                String note = "Sent " + item.getName() + " with love! Hope this helps ❤️";
+
+                // Immediate optimistic UI card
+                ChatMessage optimistic = new ChatMessage("local_" + System.currentTimeMillis(), note, true, "CARE_ITEM_SENT");
+                Map<String, Object> meta = new HashMap<>();
+                meta.put("item_name", item.getName());
+                meta.put("item_price", item.getPrice());
+                meta.put("item_category", item.getCategory());
+                meta.put("item_image", item.getImageUrl());
+                meta.put("status", "SENT");
+                optimistic.setMetadata(meta);
+                optimistic.setCreatedAt(new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault()).format(new java.util.Date()));
+                messageList.add(optimistic);
+                chatAdapter.notifyItemInserted(messageList.size() - 1);
+                rvMessages.scrollToPosition(messageList.size() - 1);
+
+                // Send as gift/item to partner
                 Map<String, Object> body = new HashMap<>();
                 body.put("connection_id", connectionId);
                 body.put("receiver_id", partnerUserId);
@@ -290,13 +372,14 @@ public class CircleChatActivity extends AppCompatActivity {
                 body.put("item_category", item.getCategory());
                 body.put("item_image", item.getImageUrl());
                 body.put("is_request", false);
-                body.put("note", "Sent " + item.getName() + " with love! Hope this helps ❤️");
+                body.put("note", note);
+
+                Toast.makeText(CircleChatActivity.this, "✓ Sending " + item.getName() + "...", Toast.LENGTH_SHORT).show();
 
                 apiService.sendChatCareItem(body).enqueue(new Callback<Map<String, Object>>() {
                     @Override
                     public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
                         loadMessages();
-                        Toast.makeText(CircleChatActivity.this, "✓ " + item.getName() + " sent to partner!", Toast.LENGTH_SHORT).show();
                     }
                     @Override
                     public void onFailure(Call<Map<String, Object>> call, Throwable t) {}

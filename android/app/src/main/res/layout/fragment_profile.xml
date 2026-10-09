@@ -212,17 +212,51 @@
                 android:textColor="#64748B"
                 android:textSize="12sp" />
 
-            <Button
-                android:id="@+id/btn_action_follow_user"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="38dp"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:visibility="gone"
-                android:background="@drawable/bg_m3_button"
-                android:text="+ Follow User"
-                android:textColor="@color/textOnPrimary"
-                android:textSize="12sp"
-                android:textStyle="bold" />
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btn_action_follow_user"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:visibility="gone"
+                    android:background="@drawable/bg_m3_button"
+                    android:text="+ Follow User"
+                    android:textColor="@color/textOnPrimary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btn_action_set_tag"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:visibility="gone"
+                    android:background="@drawable/bg_neu_card_raised"
+                    android:text="🏷️ Set Tag"
+                    android:textColor="@color/colorPrimary"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    app:backgroundTint="@null" />
+
+                <Button
+                    android:id="@+id/btn_action_chat_now"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:visibility="gone"
+                    android:background="@drawable/bg_quick_pill"
+                    android:text="💬 Chat"
+                    android:textColor="@color/colorPrimary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Quick Stats Overview (3 Cards like reference mockup top row) -->

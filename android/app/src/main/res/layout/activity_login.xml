@@ -238,7 +238,7 @@
                 android:layout_weight="1"
                 android:layout_marginEnd="6dp"
                 android:background="@drawable/bg_neu_card_raised"
-                android:text="👨 Husband (Rahul)"
+                android:text="👨 Husband (Aman)"
                 android:textColor="#2563EB"
                 android:textSize="11sp"
                 android:textStyle="bold"

@@ -52,7 +52,7 @@ const QUICK_CARE_ITEMS = [
   }
 ];
 
-// 1. Get Circle Contacts (Husband, Wife, Parents, Partner, etc.)
+// 1. Get Circle Contacts (Husband, Wife, Parents, Partner, Admin Help, etc.)
 const getContacts = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -68,10 +68,14 @@ const getContacts = async (req, res, next) => {
     if (error) throw error;
 
     const contacts = [];
+    const connectedUserIds = new Set();
+
     for (const c of (connections || [])) {
       const isRecipient = c.recipient_id === userId;
       const otherUser = isRecipient ? c.requester : c.recipient;
       if (!otherUser) continue;
+
+      connectedUserIds.add(otherUser.id);
 
       // Get latest message in this connection
       const { data: latestMsg } = await supabase
@@ -90,12 +94,16 @@ const getContacts = async (req, res, next) => {
         .eq('receiver_id', userId)
         .eq('is_read', false);
 
+      const otherProfile = Array.isArray(otherUser.profiles) ? otherUser.profiles[0] : otherUser.profiles;
+      const displayName = otherProfile?.display_name || otherUser.email?.split('@')[0] || 'Circle Partner';
+      const relationshipTag = c.custom_relationship_label || c.relationship || 'Partner';
+
       contacts.push({
         connection_id: c.id,
         user_id: otherUser.id,
-        display_name: otherUser.profiles?.display_name || 'My Circle Partner',
-        cyclecare_id: otherUser.cyclecare_id ? `@${otherUser.cyclecare_id}` : '@partner',
-        relationship: c.relationship || 'Partner',
+        display_name: displayName,
+        cyclecare_id: otherUser.cyclecare_id ? `@${otherUser.cyclecare_id}` : `@${displayName.toLowerCase().replace(/\s+/g, '_')}`,
+        relationship: relationshipTag,
         last_message: latestMsg ? latestMsg.content : 'Start a caring conversation...',
         last_message_type: latestMsg ? latestMsg.message_type : 'TEXT',
         last_message_time: latestMsg ? latestMsg.created_at : c.created_at,
@@ -103,19 +111,79 @@ const getContacts = async (req, res, next) => {
       });
     }
 
-    // If no connections exist yet, provide a mock/starter partner so user can immediately experience chat
-    if (contacts.length === 0) {
-      contacts.push({
-        connection_id: "demo-circle-connection",
-        user_id: "demo-partner-id",
-        display_name: "Aman (Husband ❤️)",
-        cyclecare_id: "@aman_care",
-        relationship: "Husband",
-        last_message: "Let me know if you need any pads or hot water bag today!",
-        last_message_type: "TEXT",
-        last_message_time: new Date().toISOString(),
-        unread_count: 0
-      });
+    // Ensure CycleCare Admin (Help) is always present for every user
+    const { data: adminUser } = await supabase
+      .from('users')
+      .select('id, email, cyclecare_id, profiles(display_name)')
+      .eq('email', 'admin@cyclecare.app')
+      .single();
+
+    if (adminUser && adminUser.id !== userId && !connectedUserIds.has(adminUser.id)) {
+      // Auto-connect with Admin (Help)
+      const { data: adminConn } = await supabase
+        .from('partner_connections')
+        .insert([{
+          requester_id: userId,
+          recipient_id: adminUser.id,
+          relationship: 'Other',
+          custom_relationship_label: 'Admin (Help)',
+          status: 'ACCEPTED'
+        }])
+        .select('id, created_at')
+        .single();
+
+      if (adminConn) {
+        contacts.unshift({
+          connection_id: adminConn.id,
+          user_id: adminUser.id,
+          display_name: 'CycleCare Admin (Help)',
+          cyclecare_id: '@admin_help',
+          relationship: 'Admin (Help)',
+          last_message: 'Hello! Official CycleCare support is here for you. How can we help?',
+          last_message_type: 'TEXT',
+          last_message_time: adminConn.created_at,
+          unread_count: 0
+        });
+      }
+    }
+
+    // If user follows people who don't have connection yet, also include them
+    const { data: follows } = await supabase
+      .from('user_follows')
+      .select('following_id, followed_user:following_id(id, email, cyclecare_id, profiles(display_name))')
+      .eq('follower_id', userId);
+
+    for (const f of (follows || [])) {
+      if (!f.followed_user || connectedUserIds.has(f.following_id)) continue;
+      
+      const { data: newConn } = await supabase
+        .from('partner_connections')
+        .insert([{
+          requester_id: userId,
+          recipient_id: f.following_id,
+          relationship: 'Other',
+          custom_relationship_label: 'Friend',
+          status: 'ACCEPTED'
+        }])
+        .select('id, created_at')
+        .single();
+
+      if (newConn) {
+        connectedUserIds.add(f.following_id);
+        const fProf = Array.isArray(f.followed_user.profiles) ? f.followed_user.profiles[0] : f.followed_user.profiles;
+        const name = fProf?.display_name || f.followed_user.email?.split('@')[0] || 'Friend';
+        contacts.push({
+          connection_id: newConn.id,
+          user_id: f.following_id,
+          display_name: name,
+          cyclecare_id: f.followed_user.cyclecare_id ? `@${f.followed_user.cyclecare_id}` : `@${name.toLowerCase().replace(/\s+/g, '_')}`,
+          relationship: 'Friend',
+          last_message: 'Connected on CycleCare! Say hello 🌸',
+          last_message_type: 'TEXT',
+          last_message_time: newConn.created_at,
+          unread_count: 0
+        });
+      }
     }
 
     res.json({ success: true, contacts });
@@ -128,84 +196,47 @@ const getContacts = async (req, res, next) => {
 const getMessages = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { connection_id } = req.params;
+    let { connection_id } = req.params;
 
     if (!connection_id) {
       return res.status(400).json({ success: false, message: 'connection_id is required' });
     }
 
-    let messages = [];
-
-    if (connection_id !== 'demo-circle-connection') {
-      const { data, error } = await supabase
-        .from('circle_messages')
-        .select('*')
-        .eq('connection_id', connection_id)
-        .order('created_at', { ascending: true });
-
-      if (error) throw error;
-      messages = data || [];
-
-      // Mark received messages as read
-      await supabase
-        .from('circle_messages')
-        .update({ is_read: true })
-        .eq('connection_id', connection_id)
-        .eq('receiver_id', userId)
-        .eq('is_read', false);
-    } else {
-      // Demo conversation seed
-      messages = [
-        {
-          id: "msg-1",
-          connection_id: "demo-circle-connection",
-          sender_id: "demo-partner-id",
-          receiver_id: userId,
-          message_type: "TEXT",
-          content: "Hey, how are you feeling today? Take rest and stay hydrated!",
-          metadata: {},
-          is_read: true,
-          created_at: new Date(Date.now() - 3600000 * 2).toISOString()
-        },
-        {
-          id: "msg-2",
-          connection_id: "demo-circle-connection",
-          sender_id: userId,
-          receiver_id: "demo-partner-id",
-          message_type: "CARE_REQUEST",
-          content: "Having some cramps today. Can you please order a heat patch for me?",
-          metadata: {
-            item_name: "Instant Warmth Heat Patch (Pack of 3)",
-            item_price: 199,
-            item_category: "Comfort & Cramps",
-            item_image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80",
-            status: "ORDERED"
-          },
-          is_read: true,
-          created_at: new Date(Date.now() - 3600000).toISOString()
-        },
-        {
-          id: "msg-3",
-          connection_id: "demo-circle-connection",
-          sender_id: "demo-partner-id",
-          receiver_id: userId,
-          message_type: "CARE_ITEM_SENT",
-          content: "Ordered it for you! Will reach your doorstep in 15 mins. Take care ❤️",
-          metadata: {
-            item_name: "CycleCare Emergency SOS Care Kit",
-            item_price: 499,
-            item_category: "Emergency & Medical",
-            item_image: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80",
-            status: "SENT"
-          },
-          is_read: true,
-          created_at: new Date(Date.now() - 1800000).toISOString()
-        }
-      ];
+    // If demo connection id was passed by legacy client, resolve user's primary connection
+    if (connection_id === 'demo-circle-connection') {
+      const { data: primaryConn } = await supabase
+        .from('partner_connections')
+        .select('id')
+        .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
+        .eq('status', 'ACCEPTED')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (primaryConn) {
+        connection_id = primaryConn.id;
+      }
     }
+
+    const { data, error } = await supabase
+      .from('circle_messages')
+      .select('*')
+      .eq('connection_id', connection_id)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    const messages = data || [];
+
+    // Mark received messages as read
+    await supabase
+      .from('circle_messages')
+      .update({ is_read: true })
+      .eq('connection_id', connection_id)
+      .eq('receiver_id', userId)
+      .eq('is_read', false);
 
     res.json({
       success: true,
+      connection_id,
       messages: messages.map(m => ({
         ...m,
         is_mine: m.sender_id === userId
@@ -220,41 +251,69 @@ const getMessages = async (req, res, next) => {
 const sendMessage = async (req, res, next) => {
   try {
     const senderId = req.user.id;
-    const { connection_id, receiver_id, content, message_type = 'TEXT' } = req.body;
+    let { connection_id, receiver_id, content, message_type = 'TEXT' } = req.body;
 
     if (!content || !content.trim()) {
       return res.status(400).json({ success: false, message: 'Message content cannot be empty' });
     }
 
-    if (connection_id === 'demo-circle-connection') {
-      const mockMsg = {
-        id: `msg_${Date.now()}`,
-        connection_id,
-        sender_id: senderId,
-        receiver_id: receiver_id || 'demo-partner-id',
-        message_type,
-        content: content.trim(),
-        metadata: {},
-        is_read: false,
-        created_at: new Date().toISOString(),
-        is_mine: true
-      };
-      return res.status(201).json({ success: true, message: mockMsg });
-    }
-
-    // Resolve receiver_id if not explicitly provided
     let targetReceiverId = receiver_id;
-    if (!targetReceiverId && connection_id) {
-      const { data: conn } = await supabase.from('partner_connections').select('requester_id, recipient_id').eq('id', connection_id).single();
+    let targetConnId = connection_id;
+
+    // Resolve connection & receiver if not provided or demo id
+    if (!targetConnId || targetConnId === 'demo-circle-connection') {
+      if (targetReceiverId) {
+        const { data: conn } = await supabase
+          .from('partner_connections')
+          .select('id')
+          .or(`and(requester_id.eq.${senderId},recipient_id.eq.${targetReceiverId}),and(requester_id.eq.${targetReceiverId},recipient_id.eq.${senderId})`)
+          .single();
+        if (conn) {
+          targetConnId = conn.id;
+        } else {
+          const { data: newConn } = await supabase
+            .from('partner_connections')
+            .insert([{
+              requester_id: senderId,
+              recipient_id: targetReceiverId,
+              relationship: 'Other',
+              custom_relationship_label: 'Partner',
+              status: 'ACCEPTED'
+            }])
+            .select('id')
+            .single();
+          if (newConn) targetConnId = newConn.id;
+        }
+      } else {
+        // Fallback to primary connection
+        const { data: pConn } = await supabase
+          .from('partner_connections')
+          .select('id, requester_id, recipient_id')
+          .or(`requester_id.eq.${senderId},recipient_id.eq.${senderId}`)
+          .eq('status', 'ACCEPTED')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (pConn) {
+          targetConnId = pConn.id;
+          targetReceiverId = pConn.requester_id === senderId ? pConn.recipient_id : pConn.requester_id;
+        }
+      }
+    } else if (!targetReceiverId) {
+      const { data: conn } = await supabase.from('partner_connections').select('requester_id, recipient_id').eq('id', targetConnId).single();
       if (conn) {
         targetReceiverId = conn.requester_id === senderId ? conn.recipient_id : conn.requester_id;
       }
     }
 
+    if (!targetReceiverId) {
+      return res.status(400).json({ success: false, message: 'Could not determine receiver for message' });
+    }
+
     const { data: newMsg, error } = await supabase
       .from('circle_messages')
       .insert([{
-        connection_id,
+        connection_id: targetConnId,
         sender_id: senderId,
         receiver_id: targetReceiverId,
         message_type,
@@ -266,7 +325,7 @@ const sendMessage = async (req, res, next) => {
 
     if (error) throw error;
 
-    // Send push notification to partner
+    // Push notification to partner
     try {
       await supabase.from('notifications').insert([{
         user_id: targetReceiverId,
@@ -289,7 +348,7 @@ const sendMessage = async (req, res, next) => {
 const sendCareItem = async (req, res, next) => {
   try {
     const senderId = req.user.id;
-    const { 
+    let { 
       connection_id, 
       receiver_id, 
       item_name, 
@@ -317,35 +376,63 @@ const sendCareItem = async (req, res, next) => {
       status: is_request ? 'REQUESTED' : 'SENT'
     };
 
-    if (connection_id === 'demo-circle-connection') {
-      const mockMsg = {
-        id: `msg_item_${Date.now()}`,
-        connection_id,
-        sender_id: senderId,
-        receiver_id: receiver_id || 'demo-partner-id',
-        message_type: messageType,
-        content,
-        metadata,
-        is_read: false,
-        created_at: new Date().toISOString(),
-        is_mine: true
-      };
-      return res.status(201).json({ success: true, message: mockMsg });
-    }
-
-    // Resolve receiver
     let targetReceiverId = receiver_id;
-    if (!targetReceiverId && connection_id) {
-      const { data: conn } = await supabase.from('partner_connections').select('requester_id, recipient_id').eq('id', connection_id).single();
+    let targetConnId = connection_id;
+
+    // Resolve connection & receiver if not provided or demo id
+    if (!targetConnId || targetConnId === 'demo-circle-connection') {
+      if (targetReceiverId) {
+        const { data: conn } = await supabase
+          .from('partner_connections')
+          .select('id')
+          .or(`and(requester_id.eq.${senderId},recipient_id.eq.${targetReceiverId}),and(requester_id.eq.${targetReceiverId},recipient_id.eq.${senderId})`)
+          .single();
+        if (conn) {
+          targetConnId = conn.id;
+        } else {
+          const { data: newConn } = await supabase
+            .from('partner_connections')
+            .insert([{
+              requester_id: senderId,
+              recipient_id: targetReceiverId,
+              relationship: 'Other',
+              custom_relationship_label: 'Partner',
+              status: 'ACCEPTED'
+            }])
+            .select('id')
+            .single();
+          if (newConn) targetConnId = newConn.id;
+        }
+      } else {
+        // Fallback to primary connection
+        const { data: pConn } = await supabase
+          .from('partner_connections')
+          .select('id, requester_id, recipient_id')
+          .or(`requester_id.eq.${senderId},recipient_id.eq.${senderId}`)
+          .eq('status', 'ACCEPTED')
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .single();
+        if (pConn) {
+          targetConnId = pConn.id;
+          targetReceiverId = pConn.requester_id === senderId ? pConn.recipient_id : pConn.requester_id;
+        }
+      }
+    } else if (!targetReceiverId) {
+      const { data: conn } = await supabase.from('partner_connections').select('requester_id, recipient_id').eq('id', targetConnId).single();
       if (conn) {
         targetReceiverId = conn.requester_id === senderId ? conn.recipient_id : conn.requester_id;
       }
     }
 
+    if (!targetReceiverId) {
+      return res.status(400).json({ success: false, message: 'Could not determine receiver for care item' });
+    }
+
     const { data: newMsg, error } = await supabase
       .from('circle_messages')
       .insert([{
-        connection_id,
+        connection_id: targetConnId,
         sender_id: senderId,
         receiver_id: targetReceiverId,
         message_type: messageType,
@@ -371,6 +458,54 @@ const sendCareItem = async (req, res, next) => {
       success: true,
       message: { ...newMsg, is_mine: true }
     });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 5. Set custom relationship tag for a contact (e.g. Husband, Wife, Sister, Best Friend)
+const setContactTag = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { target_user_id, tag } = req.body;
+
+    if (!target_user_id || !tag || !tag.trim()) {
+      return res.status(400).json({ success: false, message: 'target_user_id and tag are required' });
+    }
+
+    const cleanTag = tag.trim();
+
+    // Check existing partner connection
+    const { data: conn } = await supabase
+      .from('partner_connections')
+      .select('id')
+      .or(`and(requester_id.eq.${userId},recipient_id.eq.${target_user_id}),and(requester_id.eq.${target_user_id},recipient_id.eq.${userId})`)
+      .single();
+
+    if (conn) {
+      const { error } = await supabase
+        .from('partner_connections')
+        .update({
+          relationship: 'Other',
+          custom_relationship_label: cleanTag,
+          updated_at: new Date()
+        })
+        .eq('id', conn.id);
+      if (error) throw error;
+    } else {
+      const { error } = await supabase
+        .from('partner_connections')
+        .insert([{
+          requester_id: userId,
+          recipient_id: target_user_id,
+          relationship: 'Other',
+          custom_relationship_label: cleanTag,
+          status: 'ACCEPTED'
+        }]);
+      if (error) throw error;
+    }
+
+    res.json({ success: true, message: `Tag set to "${cleanTag}"`, tag: cleanTag });
   } catch (err) {
     next(err);
   }
@@ -505,5 +640,6 @@ module.exports = {
   searchUsers,
   followUser,
   unfollowUser,
-  getUserSocialStats
+  getUserSocialStats,
+  setContactTag
 };
