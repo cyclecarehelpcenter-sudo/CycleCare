@@ -24,6 +24,15 @@ public interface ApiService {
     @POST("auth/login")
     Call<ApiResponse<Void>> login(@Body Map<String, String> body);
 
+    @POST("auth/forgot-password")
+    Call<Map<String, Object>> forgotPassword(@Body Map<String, String> body);
+
+    @POST("auth/reset-password")
+    Call<Map<String, Object>> resetPassword(@Body Map<String, String> body);
+
+    @PUT("auth/profile")
+    Call<Map<String, Object>> updateProfile(@Body Map<String, String> body);
+
     @GET("cycle")
     Call<Map<String, Object>> getCycleData();
 

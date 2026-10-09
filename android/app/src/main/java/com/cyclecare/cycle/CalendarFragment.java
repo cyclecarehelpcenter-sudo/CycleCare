@@ -162,6 +162,7 @@ public class CalendarFragment extends Fragment {
         Button btnMidnight = sheet.findViewById(R.id.btn_time_midnight);
         Button btnMorning = sheet.findViewById(R.id.btn_time_morning);
         Button btnNight = sheet.findViewById(R.id.btn_time_night);
+        Button btnCustom = sheet.findViewById(R.id.btn_time_custom);
         Button btnSave = sheet.findViewById(R.id.btn_save_reminder);
 
         final String[] selectedTime = {"12:00 AM Midnight"};
@@ -195,6 +196,22 @@ public class CalendarFragment extends Fragment {
             btnMorning.setBackgroundResource(R.drawable.bg_neu_card_raised);
             btnMorning.setTextColor(0xFF000000);
         });
+
+        if (btnCustom != null) {
+            btnCustom.setOnClickListener(v -> {
+                java.util.Calendar now = java.util.Calendar.getInstance();
+                new android.app.TimePickerDialog(getContext(), (view, hourOfDay, minute) -> {
+                    String amPm = hourOfDay >= 12 ? "PM" : "AM";
+                    int displayHour = hourOfDay % 12;
+                    if (displayHour == 0) displayHour = 12;
+                    String timeStr = String.format(java.util.Locale.getDefault(), "%02d:%02d %s", displayHour, minute, amPm);
+                    selectedTime[0] = timeStr;
+                    btnCustom.setText("⏰ Selected: " + timeStr + " ✓");
+                    btnCustom.setBackgroundResource(R.drawable.bg_m3_button);
+                    btnCustom.setTextColor(0xFFFFFFFF);
+                }, now.get(java.util.Calendar.HOUR_OF_DAY), now.get(java.util.Calendar.MINUTE), false).show();
+            });
+        }
 
         btnSave.setOnClickListener(v -> {
             String title = etTitle.getText().toString().trim();

@@ -144,6 +144,41 @@
                 android:textColor="@color/colorPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold" />
+
+            <!-- Profile Edit & Emergency Contact Actions -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btn_edit_profile_name"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:text="✏️ Edit Name"
+                    android:textColor="#1E293B"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="19dp"
+                    app:strokeColor="#CBD5E1" />
+
+                <Button
+                    android:id="@+id/btn_set_emergency_contact"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:text="📞 Emergency Phone"
+                    android:textColor="#E11D48"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="19dp"
+                    app:strokeColor="#FDA4AF" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- Social User Search & Connect Card -->

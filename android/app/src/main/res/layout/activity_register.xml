@@ -254,12 +254,23 @@
 
             </LinearLayout>
 
+            <!-- Terms & Privacy Agreement Checkbox -->
+            <CheckBox
+                android:id="@+id/cb_register_terms"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:checked="true"
+                android:text="I accept the Terms of Service &amp; Private Policy"
+                android:textColor="#475569"
+                android:textSize="11sp" />
+
             <!-- Elevated Pill Button -->
             <Button
                 android:id="@+id/btn_register"
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:layout_marginTop="26dp"
+                android:layout_marginTop="16dp"
                 android:background="@drawable/bg_m3_button"
                 android:text="CREATE ACCOUNT"
                 android:textColor="@color/textOnPrimary"

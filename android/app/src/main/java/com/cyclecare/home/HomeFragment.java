@@ -6,6 +6,7 @@ import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -115,13 +116,51 @@ public class HomeFragment extends Fragment {
         });
 
         btnEmergencyMode.setOnClickListener(v -> {
-            Intent emergencyIntent = new Intent(getActivity(), CheckoutActivity.class);
-            emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRODUCT_ID, "a1111111-1111-1111-1111-111111111111");
-            emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRODUCT_NAME, "CycleCare Emergency Comfort & Period Kit");
-            emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRICE, 149.0);
-            emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_QTY, 1);
-            emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_IMAGE, "https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80");
-            startActivity(emergencyIntent);
+            if (getActivity() == null) return;
+            SharedPreferences prefs = getActivity().getSharedPreferences("cyclecare_prefs", Context.MODE_PRIVATE);
+            String emergencyPhone = prefs.getString("emergency_phone", "");
+            String emergencyRel = prefs.getString("emergency_rel", "Husband");
+
+            android.widget.LinearLayout layout = new android.widget.LinearLayout(getActivity());
+            layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+            layout.setPadding(40, 30, 40, 20);
+
+            TextView tvDesc = new TextView(getActivity());
+            tvDesc.setText("🚨 CycleCare Emergency SOS Care Kit includes:\n• 4x Heavy Flow Overnight Organic Cotton Pads\n• 2x Air-Activated Heat Cramp Patches\n• 1x Soothing Chamomile Relief Tea Sachet\n• 1x Intimate Antiseptic Care Wipe\n• Fast 15-20 min priority dispatch to your address.");
+            tvDesc.setTextColor(0xFF334155);
+            tvDesc.setTextSize(13);
+            tvDesc.setLineSpacing(4, 1.1f);
+            layout.addView(tvDesc);
+
+            androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(getActivity())
+                    .setTitle("🚨 Emergency Care & SOS Dispatch")
+                    .setView(layout)
+                    .setPositiveButton("📦 Dispatch SOS Kit (₹149)", (dialog, which) -> {
+                        Intent emergencyIntent = new Intent(getActivity(), CheckoutActivity.class);
+                        emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRODUCT_ID, "a1111111-1111-1111-1111-111111111111");
+                        emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRODUCT_NAME, "CycleCare Emergency SOS Kit");
+                        emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_PRICE, 149.0);
+                        emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_QTY, 1);
+                        emergencyIntent.putExtra(CheckoutActivity.EXTRA_BUY_NOW_IMAGE, "https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80");
+                        startActivity(emergencyIntent);
+                    });
+
+            if (!emergencyPhone.isEmpty()) {
+                builder.setNeutralButton("📞 Call " + emergencyRel + " (" + emergencyPhone + ")", (dialog, which) -> {
+                    Intent callIntent = new Intent(Intent.ACTION_DIAL);
+                    callIntent.setData(Uri.parse("tel:" + emergencyPhone));
+                    startActivity(callIntent);
+                });
+            } else {
+                builder.setNeutralButton("📞 Call Relative / Husband", (dialog, which) -> {
+                    Toast.makeText(getContext(), "Set your emergency phone in Profile -> Emergency Phone", Toast.LENGTH_LONG).show();
+                    if (getActivity() instanceof MainActivity) {
+                        ((MainActivity) getActivity()).selectNavigationTab(R.id.nav_profile);
+                    }
+                });
+            }
+
+            builder.setNegativeButton("Cancel", null).show();
         });
 
         btnAskAi.setOnClickListener(v -> startActivity(new Intent(getActivity(), AskAIAssistantActivity.class)));
@@ -146,8 +185,42 @@ public class HomeFragment extends Fragment {
         View btnHomeCircleChat = view.findViewById(R.id.btn_home_circle_chat);
         if (btnHomeCircleChat != null) {
             btnHomeCircleChat.setOnClickListener(v -> {
-                Intent chatIntent = new Intent(getActivity(), com.cyclecare.chat.CircleConversationsActivity.class);
-                startActivity(chatIntent);
+                // Smart auto-routing: check circle contacts for Husband, Father, BF, Mother
+                com.cyclecare.api.ApiClient.getApiService(getContext()).getCircleContacts().enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+                    @Override
+                    public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                        if (response.isSuccessful() && response.body() != null) {
+                            Object contactsObj = response.body().get("contacts");
+                            if (contactsObj instanceof java.util.List) {
+                                java.util.List<?> list = (java.util.List<?>) contactsObj;
+                                for (Object item : list) {
+                                    if (item instanceof java.util.Map) {
+                                        java.util.Map<?, ?> m = (java.util.Map<?, ?>) item;
+                                        String rel = String.valueOf(m.get("relationship")).toLowerCase();
+                                        if (rel.contains("husband") || rel.contains("partner") || rel.contains("father") || rel.contains("mom")) {
+                                            Intent intent = new Intent(getActivity(), com.cyclecare.chat.CircleChatActivity.class);
+                                            intent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_CONNECTION_ID, String.valueOf(m.get("connection_id")));
+                                            intent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_CONTACT_NAME, String.valueOf(m.get("display_name")));
+                                            intent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_RELATIONSHIP, String.valueOf(m.get("relationship")));
+                                            intent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_PARTNER_USER_ID, String.valueOf(m.get("user_id")));
+                                            startActivity(intent);
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Fallback to conversation list
+                        Intent chatIntent = new Intent(getActivity(), com.cyclecare.chat.CircleConversationsActivity.class);
+                        startActivity(chatIntent);
+                    }
+
+                    @Override
+                    public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
+                        Intent chatIntent = new Intent(getActivity(), com.cyclecare.chat.CircleConversationsActivity.class);
+                        startActivity(chatIntent);
+                    }
+                });
             });
         }
 

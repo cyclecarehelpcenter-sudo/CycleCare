@@ -532,9 +532,10 @@
                         <tr>
                             <th>User Name / Email</th>
                             <th>Role &amp; Mode</th>
-                            <th>Account Type</th>
+                            <th>Account Type / Tag</th>
                             <th>Status</th>
                             <th>Registered At</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="usersTable">
@@ -615,6 +616,76 @@
         </div>
     </div>
 
+    <!-- User Edit / Tag Manager Modal -->
+    <div class="modal-overlay" id="userEditModal">
+        <div class="modal" style="max-width: 480px;">
+            <h3>🏷️ Edit User Profile &amp; Account Tag</h3>
+            <p style="font-size: 13px; color: var(--subtext); margin-bottom: 16px;">
+                Manage account tags (e.g. REAL USER, VIP, DEMO), roles, and contact info for <strong id="editUserEmailDisplay">user</strong>.
+            </p>
+
+            <input type="hidden" id="editUserId">
+
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Display Name</label>
+                <input type="text" id="editUserName" placeholder="Full Name">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 12px;">
+                <label>Account Tag Name</label>
+                <input type="text" id="editUserTag" placeholder="e.g. ORGANIC REAL USER, VIP, DEMO">
+                <div style="font-size: 11px; color: var(--subtext); margin-top: 4px;">
+                    Quick tags: 
+                    <a href="javascript:void(0)" onclick="setTagField('ORGANIC REAL USER')">ORGANIC REAL USER</a> • 
+                    <a href="javascript:void(0)" onclick="setTagField('VIP MEMBER')">VIP MEMBER</a> • 
+                    <a href="javascript:void(0)" onclick="setTagField('DEMO')">DEMO</a> • 
+                    <a href="javascript:void(0)" onclick="setTagField('PARTNER (HUSBAND)')">PARTNER</a>
+                </div>
+            </div>
+
+            <div class="form-grid" style="margin-bottom: 12px;">
+                <div class="form-group">
+                    <label>Role</label>
+                    <select id="editUserRole">
+                        <option value="USER">USER</option>
+                        <option value="PARTNER">PARTNER</option>
+                        <option value="ADMIN">ADMIN</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select id="editUserStatus">
+                        <option value="ACTIVE">ACTIVE</option>
+                        <option value="SUSPENDED">SUSPENDED</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="btn-actions-row" style="margin-top: 20px;">
+                <button type="button" class="btn-draft" onclick="closeUserEditModal()">Cancel</button>
+                <button type="button" class="btn-publish" id="btnSaveUserTag" onclick="saveUserTagChanges()">Save Tag &amp; Details</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Cycle Logs Viewer Modal -->
+    <div class="modal-overlay" id="userLogsModal">
+        <div class="modal" style="max-width: 600px;">
+            <h3>📊 User Health &amp; Cycle Logs</h3>
+            <p style="font-size: 13px; color: var(--subtext); margin-bottom: 14px;" id="logsModalSubtitle">
+                Supabase database records for this user
+            </p>
+
+            <div id="userLogsContent" style="max-height: 360px; overflow-y: auto; font-size: 13px;">
+                <p style="text-align:center; padding: 20px;">Loading logs from database...</p>
+            </div>
+
+            <div style="margin-top: 18px; text-align: right;">
+                <button type="button" class="btn-draft" onclick="closeUserLogsModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
 
     <script>
@@ -677,6 +748,8 @@
             } catch(e) {}
         }
 
+        let allUsersCache = [];
+
         async function loadUsers() {
             try {
                 const res = await fetch('/api/v1/admin/users', {
@@ -687,27 +760,29 @@
                 if(!tbody) return;
 
                 if(data.success && data.users && data.users.length > 0) {
+                    allUsersCache = data.users;
                     tbody.innerHTML = data.users.map(u => {
                         const prof = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles;
                         const dName = prof?.display_name || u.email.split('@')[0];
                         const isDemo = u.account_type === 'DEMO';
                         const badgeStyle = isDemo 
-                            ? 'background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1;' 
-                            : 'background: #DCFCE7; color: #166534; font-weight: bold; border: 1px solid #86EFAC;';
+                            ? 'background: #F1F5F9; color: #475569; border: 1px solid #CBD5E1; cursor: pointer;' 
+                            : 'background: #DCFCE7; color: #166534; font-weight: bold; border: 1px solid #86EFAC; cursor: pointer;';
                         const tagText = u.account_tag || (isDemo ? 'DEMO' : 'ORGANIC REAL USER');
 
                         return `
                             <tr>
                                 <td>
-                                    <strong>${dName}</strong>
+                                    <strong style="cursor: pointer; color: var(--primary);" onclick="openUserEditModal('${u.id}')">${dName} ✏️</strong>
                                     <div style="font-size:11px; color:var(--subtext); font-family: monospace;">${u.email}</div>
+                                    ${prof?.emergency_contact_phone ? `<div style="font-size:11px; color:#2563EB;">📞 Emergency: ${prof.emergency_contact_phone} (${prof.emergency_contact_relation || 'Relative'})</div>` : ''}
                                 </td>
                                 <td>
                                     <span class="badge badge-cat">${u.role}</span>
                                     <span style="font-size:11px; color:var(--subtext); margin-left: 4px;">(${u.usage_mode || 'STANDARD'})</span>
                                 </td>
                                 <td>
-                                    <span class="badge" style="${badgeStyle}">${tagText}</span>
+                                    <span class="badge" style="${badgeStyle}" onclick="openUserEditModal('${u.id}')" title="Click to change Tag">${tagText} 🏷️</span>
                                 </td>
                                 <td>
                                     <span class="badge ${u.status === 'ACTIVE' ? 'badge-live' : 'badge-low'}">${u.status}</span>
@@ -715,16 +790,131 @@
                                 <td style="font-size:12px; color:var(--subtext);">
                                     ${new Date(u.created_at).toLocaleDateString()} ${new Date(u.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                 </td>
+                                <td>
+                                    <button class="btn-action-sm" style="background:#EFF6FF; color:#1E40AF;" onclick="openUserEditModal('${u.id}')">🏷️ Edit Tag</button>
+                                    <button class="btn-action-sm" style="background:#FDF2F8; color:#BE185D;" onclick="viewUserCycleLogs('${u.id}', '${dName.replace(/'/g, "\\'")}')">📊 Cycle Logs</button>
+                                </td>
                             </tr>
                         `;
                     }).join('');
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">No users registered yet.</td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">No users registered yet.</td></tr>';
                 }
             } catch(e) {
                 const tbody = document.getElementById('usersTable');
-                if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: red;">Failed to load users.</td></tr>';
+                if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: red;">Failed to load users.</td></tr>';
             }
+        }
+
+        function setTagField(val) {
+            document.getElementById('editUserTag').value = val;
+        }
+
+        function openUserEditModal(userId) {
+            const user = allUsersCache.find(u => u.id === userId);
+            if (!user) return;
+            const prof = Array.isArray(user.profiles) ? user.profiles[0] : user.profiles;
+            const dName = prof?.display_name || user.email.split('@')[0];
+
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUserEmailDisplay').innerText = user.email;
+            document.getElementById('editUserName').value = dName;
+            document.getElementById('editUserTag').value = user.account_tag || (user.account_type === 'DEMO' ? 'DEMO' : 'ORGANIC REAL USER');
+            document.getElementById('editUserRole').value = user.role || 'USER';
+            document.getElementById('editUserStatus').value = user.status || 'ACTIVE';
+
+            document.getElementById('userEditModal').style.display = 'flex';
+        }
+
+        function closeUserEditModal() {
+            document.getElementById('userEditModal').style.display = 'none';
+        }
+
+        async function saveUserTagChanges() {
+            const userId = document.getElementById('editUserId').value;
+            const accountTag = document.getElementById('editUserTag').value.trim();
+            const displayName = document.getElementById('editUserName').value.trim();
+            const role = document.getElementById('editUserRole').value;
+            const status = document.getElementById('editUserStatus').value;
+
+            const btn = document.getElementById('btnSaveUserTag');
+            btn.disabled = true;
+            btn.innerText = 'Saving...';
+
+            try {
+                const res = await fetch(`/api/v1/admin/users/${userId}/tag`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-admin-key': getAdminKey()
+                    },
+                    body: JSON.stringify({
+                        account_tag: accountTag,
+                        display_name: displayName,
+                        role: role,
+                        status: status
+                    })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast('✓ User tag and details updated successfully!', 'success');
+                    closeUserEditModal();
+                    loadUsers();
+                    loadStats();
+                } else {
+                    showToast('Failed to update: ' + (result.message || 'Error'), 'error');
+                }
+            } catch (err) {
+                showToast('Network error updating user tag', 'error');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Save Tag & Details';
+            }
+        }
+
+        async function viewUserCycleLogs(userId, userName) {
+            document.getElementById('logsModalSubtitle').innerText = `Period & symptom logs recorded by ${userName} in Supabase PostgreSQL`;
+            const container = document.getElementById('userLogsContent');
+            container.innerHTML = '<p style="text-align:center; padding: 20px;">Fetching cycle logs...</p>';
+            document.getElementById('userLogsModal').style.display = 'flex';
+
+            try {
+                const res = await fetch(`/api/v1/admin/users/${userId}/cycle-logs`, {
+                    headers: { 'x-admin-key': getAdminKey() }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const logs = data.period_logs || [];
+                    const symptoms = data.symptoms || [];
+                    const moods = data.moods || [];
+
+                    let html = `<div style="margin-bottom:14px;"><strong>🩸 Period Logs (${logs.length}):</strong></div>`;
+                    if (logs.length === 0) {
+                        html += '<p style="color:var(--subtext); font-style:italic;">No period dates recorded yet.</p>';
+                    } else {
+                        html += '<table style="margin-bottom:14px;"><thead><tr><th>Start Date</th><th>End Date</th><th>Flow</th><th>Notes</th></tr></thead><tbody>';
+                        html += logs.map(l => `<tr><td><strong>${l.start_date}</strong></td><td>${l.end_date || '-'}</td><td><span class="badge badge-cat">${l.flow || 'MEDIUM'}</span></td><td>${l.notes || '-'}</td></tr>`).join('');
+                        html += '</tbody></table>';
+                    }
+
+                    html += `<div style="margin-top:12px; margin-bottom:6px;"><strong>🤒 Logged Symptoms (${symptoms.length}):</strong></div>`;
+                    if (symptoms.length === 0) {
+                        html += '<p style="color:var(--subtext); font-style:italic;">No symptoms logged.</p>';
+                    } else {
+                        html += '<div style="display:flex; flex-wrap:wrap; gap:6px;">' + symptoms.map(s => `<span class="badge badge-draft">${s.symptom_name || 'Symptom'} (${s.severity || 'Mild'})</span>`).join('') + '</div>';
+                    }
+
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = `<p style="color:red; text-align:center;">${data.message || 'Failed to load logs'}</p>`;
+                }
+            } catch (err) {
+                container.innerHTML = '<p style="color:red; text-align:center;">Error fetching logs from server.</p>';
+            }
+        }
+
+        function closeUserLogsModal() {
+            document.getElementById('userLogsModal').style.display = 'none';
         }
 
         async function loadChatLogs() {

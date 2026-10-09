@@ -57,7 +57,6 @@ public class CircleChatActivity extends AppCompatActivity {
     private EditText etChatMessage;
     private ImageButton btnChatSend, btnAttachCare, btnChatBack, btnChatStore;
     private TextView tvContactName, tvRelationshipBadge, tvAvatarLetter;
-    private Button chipPads, chipPatch, chipTea, chipChoco, chipSos;
 
     private ApiService apiService;
     private Handler pollingHandler;
@@ -87,7 +86,6 @@ public class CircleChatActivity extends AppCompatActivity {
 
         initViews();
         setupRecyclerView();
-        setupQuickChips();
         loadCatalog();
 
         if (connectionId == null || connectionId.equals("demo-circle-connection")) {
@@ -156,12 +154,6 @@ public class CircleChatActivity extends AppCompatActivity {
         btnChatSend = findViewById(R.id.btn_chat_send);
         btnAttachCare = findViewById(R.id.btn_attach_care);
 
-        chipPads = findViewById(R.id.chip_req_pads);
-        chipPatch = findViewById(R.id.chip_req_patch);
-        chipTea = findViewById(R.id.chip_req_tea);
-        chipChoco = findViewById(R.id.chip_req_choco);
-        chipSos = findViewById(R.id.chip_req_sos);
-
         tvContactName.setText(contactName);
         tvRelationshipBadge.setText(relationship + " ❤️");
         tvAvatarLetter.setText(contactName.isEmpty() ? "P" : contactName.substring(0, 1).toUpperCase());
@@ -179,38 +171,6 @@ public class CircleChatActivity extends AppCompatActivity {
         lm.setStackFromEnd(true);
         rvMessages.setLayoutManager(lm);
         rvMessages.setAdapter(chatAdapter);
-    }
-
-    private void setupQuickChips() {
-        chipPads.setOnClickListener(v -> sendQuickCareItem(
-                "CycleCare Organic Cotton Pads (Night)", 149, "Period Care",
-                "https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80",
-                "Need heavy flow night pads urgently. 🌸"
-        ));
-
-        chipPatch.setOnClickListener(v -> sendQuickCareItem(
-                "Instant Warmth Heat Patch (Pack of 3)", 199, "Comfort & Cramps",
-                "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80",
-                "Pelvic cramps are painful today. Could you get me heat patches? 🩹"
-        ));
-
-        chipTea.setOnClickListener(v -> sendQuickCareItem(
-                "Chamomile & Ginger Soothing Herbal Tea", 180, "Soothing Teas",
-                "https://images.unsplash.com/photo-1597481499750-3e6b22637e12?auto=format&fit=crop&w=600&q=80",
-                "A cup of soothing ginger tea would really help right now. 🍵"
-        ));
-
-        chipChoco.setOnClickListener(v -> sendQuickCareItem(
-                "CycleCare Dark Comfort Chocolate (70%)", 120, "Comfort Treats",
-                "https://images.unsplash.com/photo-1549007994-cb92caebd54b?auto=format&fit=crop&w=600&q=80",
-                "Craving dark chocolate for cramp comfort and mood boost! 🍫"
-        ));
-
-        chipSos.setOnClickListener(v -> sendQuickCareItem(
-                "CycleCare Emergency SOS Care Kit", 499, "Emergency & Medical",
-                "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80",
-                "🚨 EMERGENCY SOS: Period started unexpectedly. Need complete care kit ASAP!"
-        ));
     }
 
     private void loadCatalog() {

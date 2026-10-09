@@ -182,10 +182,101 @@ const refresh = async (req, res, next) => {
   }
 };
 
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email address is required' });
+    }
+    const cleanEmail = email.trim().toLowerCase();
+    const { data: user, error } = await supabase.from('users').select('id, email').eq('email', cleanEmail).single();
+    if (error || !user) {
+      return res.status(404).json({ success: false, message: 'No registered account found with this email' });
+    }
+    res.json({
+      success: true,
+      message: 'Password reset code generated. Use Demo OTP: 1234',
+      demo_otp: '1234',
+      email: cleanEmail
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, new_password } = req.body;
+    if (!email || !otp || !new_password) {
+      return res.status(400).json({ success: false, message: 'Email, OTP, and new password are required' });
+    }
+    if (String(otp).trim() !== '1234') {
+      return res.status(400).json({ success: false, message: 'Invalid OTP. Please enter 1234' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters' });
+    }
+
+    const salt = await bcrypt.genSalt(10);
+    const hash = await bcrypt.hash(new_password, salt);
+
+    const { data, error } = await supabase
+      .from('users')
+      .update({ password_hash: hash, updated_at: new Date() })
+      .eq('email', email.trim().toLowerCase())
+      .select('id, email')
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ success: false, message: 'User not found or update failed' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Password reset successfully! Please sign in with your new password.'
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateProfile = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { display_name, emergency_contact_phone, emergency_contact_name, emergency_contact_relation } = req.body;
+
+    const updates = { updated_at: new Date() };
+    if (display_name) updates.display_name = display_name.trim();
+    if (emergency_contact_phone !== undefined) updates.emergency_contact_phone = emergency_contact_phone;
+    if (emergency_contact_name !== undefined) updates.emergency_contact_name = emergency_contact_name;
+    if (emergency_contact_relation !== undefined) updates.emergency_contact_relation = emergency_contact_relation;
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('user_id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      message: 'Profile updated successfully',
+      profile: data
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   register,
   login,
   logout,
   refresh,
-  me
+  me,
+  forgotPassword,
+  resetPassword,
+  updateProfile
 };

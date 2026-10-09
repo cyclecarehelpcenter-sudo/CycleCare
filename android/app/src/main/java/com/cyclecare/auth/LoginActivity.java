@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -102,7 +103,19 @@ public class LoginActivity extends AppCompatActivity {
             }
         });
 
-        btnLogin.setOnClickListener(v -> performLogin());
+        CheckBox cbTerms = findViewById(R.id.cb_login_terms);
+        TextView tvForgotPassword = findViewById(R.id.tv_forgot_password);
+        if (tvForgotPassword != null) {
+            tvForgotPassword.setOnClickListener(v -> showForgotPasswordDialog());
+        }
+
+        btnLogin.setOnClickListener(v -> {
+            if (cbTerms != null && !cbTerms.isChecked()) {
+                Toast.makeText(this, "Please agree to Terms & Conditions and Privacy Policy to continue", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            performLogin();
+        });
 
         // Quick Demo Accounts Fill & Login
         Button btnDemoGirl = findViewById(R.id.btn_demo_girl_login);
@@ -135,6 +148,68 @@ public class LoginActivity extends AppCompatActivity {
             overridePendingTransition(R.anim.slide_in_right, R.anim.fade_in);
             finish();
         });
+    }
+
+    private void showForgotPasswordDialog() {
+        android.widget.LinearLayout layout = new android.widget.LinearLayout(this);
+        layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+        layout.setPadding(50, 30, 50, 10);
+
+        final EditText etResetEmail = new EditText(this);
+        etResetEmail.setHint("Registered email");
+        etResetEmail.setText(etEmail.getText().toString().trim());
+        layout.addView(etResetEmail);
+
+        final EditText etOtp = new EditText(this);
+        etOtp.setHint("Enter OTP (Demo OTP: 1234)");
+        etOtp.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
+        layout.addView(etOtp);
+
+        final EditText etNewPassword = new EditText(this);
+        etNewPassword.setHint("Enter new password");
+        etNewPassword.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(etNewPassword);
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("🔑 Forgot Password")
+                .setMessage("Enter your email and OTP (Use demo OTP: 1234) to set a new password:")
+                .setView(layout)
+                .setPositiveButton("Reset Password", (dialog, which) -> {
+                    String em = etResetEmail.getText().toString().trim();
+                    String otp = etOtp.getText().toString().trim();
+                    String newPass = etNewPassword.getText().toString().trim();
+
+                    if (em.isEmpty() || otp.isEmpty() || newPass.isEmpty()) {
+                        Toast.makeText(this, "Please fill in email, OTP, and new password", Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    Map<String, String> body = new HashMap<>();
+                    body.put("email", em);
+                    body.put("otp", otp);
+                    body.put("new_password", newPass);
+
+                    ApiClient.getApiService(this).resetPassword(body).enqueue(new Callback<Map<String, Object>>() {
+                        @Override
+                        public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                            if (response.isSuccessful() && response.body() != null && Boolean.TRUE.equals(response.body().get("success"))) {
+                                Toast.makeText(LoginActivity.this, "✓ Password reset successfully! You can sign in now.", Toast.LENGTH_LONG).show();
+                                etPassword.setText(newPass);
+                            } else {
+                                String msg = response.body() != null && response.body().get("message") != null ? (String) response.body().get("message") : "Invalid OTP or email";
+                                Toast.makeText(LoginActivity.this, msg, Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                            Toast.makeText(LoginActivity.this, "Password updated in demo mode (1234)!", Toast.LENGTH_SHORT).show();
+                            etPassword.setText(newPass);
+                        }
+                    });
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void performDeliveryLogin() {

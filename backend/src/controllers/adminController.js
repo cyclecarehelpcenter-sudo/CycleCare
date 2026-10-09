@@ -55,29 +55,74 @@ const getUsers = async (req, res, next) => {
   try {
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, role, status, usage_mode, created_at, profiles(display_name)')
+      .select('id, email, role, status, usage_mode, created_at, profiles(display_name, account_tag, emergency_contact_phone)')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
     const demoEmails = ['admin@cyclecare.app', 'demo@cyclecare.com', 'husband.demo@cyclecare.app', 'delivery.demo@cyclecare.app', 'newuser@cyclecare.com'];
     const tagged = (data || []).map(u => {
+      const prof = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles;
       const isDemo = demoEmails.includes(u.email) || u.email.includes('demo') || u.email.endsWith('@cyclecare.com') || u.email.endsWith('@cyclecare.app');
-      let accountTag = 'REAL USER';
-      if (u.email === 'admin@cyclecare.app') accountTag = 'DEMO ADMIN';
-      else if (u.email === 'demo@cyclecare.com') accountTag = 'DEMO GIRL';
-      else if (u.email === 'husband.demo@cyclecare.app') accountTag = 'DEMO HUSBAND';
-      else if (u.email === 'delivery.demo@cyclecare.app') accountTag = 'DEMO COURIER';
-      else if (isDemo) accountTag = 'DEMO USER';
+      let accountTag = prof?.account_tag || (isDemo ? 'DEMO USER' : 'REAL USER');
+      if (u.email === 'admin@cyclecare.app') accountTag = prof?.account_tag || 'DEMO ADMIN';
+      else if (u.email === 'demo@cyclecare.com') accountTag = prof?.account_tag || 'DEMO GIRL';
+      else if (u.email === 'husband.demo@cyclecare.app') accountTag = prof?.account_tag || 'DEMO HUSBAND';
+      else if (u.email === 'delivery.demo@cyclecare.app') accountTag = prof?.account_tag || 'DEMO COURIER';
 
       return {
         ...u,
         account_type: isDemo ? 'DEMO' : 'REAL',
-        account_tag: accountTag
+        account_tag: accountTag,
+        display_name: prof?.display_name || u.email.split('@')[0],
+        emergency_phone: prof?.emergency_contact_phone || 'None'
       };
     });
 
     res.json({ success: true, users: tagged });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const updateUserTag = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+    const { tag, display_name, role, status } = req.body;
+
+    if (display_name !== undefined || tag !== undefined) {
+      const pUpdates = { updated_at: new Date() };
+      if (display_name) pUpdates.display_name = display_name.trim();
+      if (tag !== undefined) pUpdates.account_tag = tag.trim();
+      await supabase.from('profiles').update(pUpdates).eq('user_id', userId);
+    }
+
+    if (role || status) {
+      const uUpdates = { updated_at: new Date() };
+      if (role) uUpdates.role = role;
+      if (status) uUpdates.status = status;
+      await supabase.from('users').update(uUpdates).eq('id', userId);
+    }
+
+    res.json({ success: true, message: 'User updated successfully' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getUserCycleLogs = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+    const { data: periodLogs } = await supabase.from('period_logs').select('*').eq('user_id', userId).order('start_date', { ascending: false });
+    const { data: symptomLogs } = await supabase.from('user_symptoms').select('*, symptoms(name)').eq('user_id', userId).order('logged_at', { ascending: false }).limit(20);
+    const { data: moodLogs } = await supabase.from('user_moods').select('*, moods(name)').eq('user_id', userId).order('logged_at', { ascending: false }).limit(20);
+
+    res.json({
+      success: true,
+      periodLogs: periodLogs || [],
+      symptomLogs: symptomLogs || [],
+      moodLogs: moodLogs || []
+    });
   } catch (err) {
     next(err);
   }
@@ -275,6 +320,8 @@ module.exports = {
   getDashboardStats,
   getUsers,
   updateUserStatus,
+  updateUserTag,
+  getUserCycleLogs,
   getAdminProducts,
   createProduct,
   updateProduct,

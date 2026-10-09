@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
@@ -207,6 +208,12 @@ public class RegisterActivity extends AppCompatActivity {
     }
 
     private void performRegister() {
+        CheckBox cbTerms = findViewById(R.id.cb_register_terms);
+        if (cbTerms != null && !cbTerms.isChecked()) {
+            Toast.makeText(this, "Please accept the Terms of Service & Privacy Policy", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
         String name = etName.getText().toString().trim();
         String email = etEmail.getText().toString().trim();
         String password = etPassword.getText().toString().trim();
@@ -233,16 +240,25 @@ public class RegisterActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<ApiResponse<Void>> call, Response<ApiResponse<Void>> response) {
                 if (response.isSuccessful() && response.body() != null && response.body().isSuccess()) {
-                    saveSessionAndNavigate(response.body().getToken(), name);
+                    saveSessionAndNavigate(response.body().getToken(), name.isEmpty() ? email.split("@")[0] : name);
+                } else if (response.code() == 409 || (response.errorBody() != null)) {
+                    try {
+                        String err = response.errorBody() != null ? response.errorBody().string() : "";
+                        if (err.toLowerCase().contains("email already exists") || err.toLowerCase().contains("already registered")) {
+                            Toast.makeText(RegisterActivity.this, "This email is already registered. Please sign in or use another email.", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                    } catch (Exception ignored) {}
+                    saveSessionAndNavigate("demo_jwt_token_12345", name.isEmpty() ? email.split("@")[0] : name);
                 } else {
-                    saveSessionAndNavigate("demo_jwt_token_12345", name);
+                    saveSessionAndNavigate("demo_jwt_token_12345", name.isEmpty() ? email.split("@")[0] : name);
                 }
             }
 
             @Override
             public void onFailure(Call<ApiResponse<Void>> call, Throwable t) {
                 Toast.makeText(RegisterActivity.this, "Account Created in Demo Mode!", Toast.LENGTH_SHORT).show();
-                saveSessionAndNavigate("demo_jwt_token_12345", name);
+                saveSessionAndNavigate("demo_jwt_token_12345", name.isEmpty() ? email.split("@")[0] : name);
             }
         });
     }

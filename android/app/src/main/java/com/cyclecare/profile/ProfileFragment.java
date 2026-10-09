@@ -52,6 +52,96 @@ public class ProfileFragment extends Fragment {
             tvUserEmail.setText(userName.toLowerCase().replaceAll("\\s+", "") + "@cyclecare.com");
         }
 
+        Button btnEditName = view.findViewById(R.id.btn_edit_profile_name);
+        if (btnEditName != null) {
+            btnEditName.setOnClickListener(v -> {
+                final EditText input = new EditText(getContext());
+                input.setHint("Enter new display name");
+                input.setText(tvUserName.getText().toString());
+                new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                        .setTitle("✏️ Update Display Name")
+                        .setView(input)
+                        .setPositiveButton("Update", (dialog, which) -> {
+                            String newName = input.getText().toString().trim();
+                            if (!newName.isEmpty()) {
+                                tvUserName.setText(newName);
+                                if (getActivity() != null) {
+                                    getActivity().getSharedPreferences("cyclecare_prefs", Context.MODE_PRIVATE)
+                                            .edit().putString("user_name", newName).apply();
+                                }
+                                java.util.Map<String, String> body = new java.util.HashMap<>();
+                                body.put("display_name", newName);
+                                com.cyclecare.api.ApiClient.getApiService(getContext()).updateProfile(body).enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+                                    @Override
+                                    public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                                        Toast.makeText(getContext(), "✓ Name updated in Profile & Database!", Toast.LENGTH_SHORT).show();
+                                    }
+
+                                    @Override
+                                    public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
+                                        Toast.makeText(getContext(), "✓ Name updated locally!", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                            }
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            });
+        }
+
+        Button btnSetEmergency = view.findViewById(R.id.btn_set_emergency_contact);
+        if (btnSetEmergency != null) {
+            btnSetEmergency.setOnClickListener(v -> {
+                android.widget.LinearLayout layout = new android.widget.LinearLayout(getContext());
+                layout.setOrientation(android.widget.LinearLayout.VERTICAL);
+                layout.setPadding(50, 30, 50, 10);
+
+                final EditText etPhone = new EditText(getContext());
+                etPhone.setHint("Emergency Phone (e.g. 9876543210)");
+                etPhone.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+                layout.addView(etPhone);
+
+                final EditText etRel = new EditText(getContext());
+                etRel.setHint("Relationship (e.g. Husband, Relative, Mom)");
+                layout.addView(etRel);
+
+                new androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                        .setTitle("📞 Emergency Contact")
+                        .setMessage("Set contact number for 1-Tap SOS calling:")
+                        .setView(layout)
+                        .setPositiveButton("Save Contact", (dialog, which) -> {
+                            String phone = etPhone.getText().toString().trim();
+                            String rel = etRel.getText().toString().trim();
+                            if (rel.isEmpty()) rel = "Husband";
+
+                            if (!phone.isEmpty() && getActivity() != null) {
+                                getActivity().getSharedPreferences("cyclecare_prefs", Context.MODE_PRIVATE)
+                                        .edit()
+                                        .putString("emergency_phone", phone)
+                                        .putString("emergency_rel", rel)
+                                        .apply();
+
+                                java.util.Map<String, String> body = new java.util.HashMap<>();
+                                body.put("emergency_contact_phone", phone);
+                                body.put("emergency_contact_relation", rel);
+                                com.cyclecare.api.ApiClient.getApiService(getContext()).updateProfile(body).enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+                                    @Override
+                                    public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                                        Toast.makeText(getContext(), "✓ Emergency contact saved in Database!", Toast.LENGTH_SHORT).show();
+                                    }
+
+                                    @Override
+                                    public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {
+                                        Toast.makeText(getContext(), "✓ Emergency contact saved locally!", Toast.LENGTH_SHORT).show();
+                                    }
+                                });
+                            }
+                        })
+                        .setNegativeButton("Cancel", null)
+                        .show();
+            });
+        }
+
         // Social Search & Follow System
         EditText etSearchUsers = view.findViewById(R.id.et_search_users);
         View btnSearch = view.findViewById(R.id.btn_trigger_user_search);

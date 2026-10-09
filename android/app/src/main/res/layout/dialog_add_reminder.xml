@@ -111,6 +111,19 @@
             app:strokeColor="@color/colorBorder" />
     </LinearLayout>
 
+    <Button
+        android:id="@+id/btn_time_custom"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="42dp"
+        android:layout_marginTop="8dp"
+        android:text="⏰ Choose Custom Time (Pick Any Time)"
+        android:textColor="@color/colorPrimary"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:cornerRadius="20dp"
+        app:strokeColor="@color/colorPrimary" />
+
     <!-- Save Button -->
     <Button
         android:id="@+id/btn_save_reminder"

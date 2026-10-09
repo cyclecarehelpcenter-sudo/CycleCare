@@ -23,6 +23,20 @@
         android:textColor="#718096"
         android:textSize="12sp" />
 
+    <!-- Auto-Detect Exact Location GPS Button -->
+    <Button
+        android:id="@+id/btn_auto_detect_location"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="12dp"
+        android:text="📍 Auto-Detect Current GPS Location"
+        android:textColor="#2563EB"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        app:cornerRadius="10dp"
+        app:strokeColor="#93C5FD" />
+
     <EditText
         android:id="@+id/et_addr_name"
         android:layout_width="match_parent"

@@ -22,6 +22,8 @@ router.use(adminAuth);
 router.get('/dashboard', adminController.getDashboardStats);
 router.get('/users', adminController.getUsers);
 router.patch('/users/:id/status', adminController.updateUserStatus);
+router.patch('/users/:id/tag', adminController.updateUserTag);
+router.get('/users/:id/cycle-logs', adminController.getUserCycleLogs);
 
 router.get('/products', adminController.getAdminProducts);
 router.post('/products', adminController.createProduct);
