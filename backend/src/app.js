@@ -27,7 +27,18 @@ const errorHandler = require('./middleware/errorHandler');
 const app = express();
 
 // Security Middlewares
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrcAttr: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
+      imgSrc: ["'self'", "data:", "https:"],
+      connectSrc: ["'self'", "https:", "http:"],
+    }
+  }
+}));
 app.use(cors());
 
 // Rate Limiting
@@ -43,8 +54,11 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-// Static Admin Web Panel
+// Static Admin Web Panel & Routes
 app.use('/admin-panel', express.static(path.join(__dirname, 'views')));
+app.get(['/admin', '/admin-panel'], (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'admin.html'));
+});
 
 // API Routes (v1)
 app.use('/api/v1/auth', authRoutes);

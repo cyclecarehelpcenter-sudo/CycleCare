@@ -291,8 +291,12 @@ const unpublishProduct = async (req, res, next) => {
 const deleteProduct = async (req, res, next) => {
   try {
     const productId = req.params.id;
-    const { error } = await supabase.from('products').delete().eq('id', productId);
-    if (error) throw error;
+    const pool = require('../config/db');
+    await pool.query('DELETE FROM product_images WHERE product_id = $1', [productId]);
+    await pool.query('DELETE FROM inventory_movements WHERE product_id = $1', [productId]);
+    await pool.query('DELETE FROM product_variants WHERE product_id = $1', [productId]);
+    await pool.query('DELETE FROM product_activity_logs WHERE product_id = $1', [productId]);
+    await pool.query('DELETE FROM products WHERE id = $1', [productId]);
     res.json({ success: true, message: 'Product deleted successfully' });
   } catch (err) {
     next(err);

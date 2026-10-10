@@ -296,11 +296,22 @@
     <header>
         <div class="header-title">
             <h1>CycleCare Control Panel</h1>
-            <span>Store &amp; Inventory Manager</span>
+            <span id="headerEnvBadge">Store &amp; Inventory Manager</span>
         </div>
         <div class="admin-auth-bar">
+            <select id="apiBaseSelect" onchange="onServerChange()" style="padding: 7px 10px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.4); background: rgba(255,255,255,0.18); color: white; outline: none; font-size: 12px; cursor: pointer;">
+                <option value="http://localhost:5000" style="color: #333;">Local Node Server (localhost:5000)</option>
+                <option value="https://cyclecare-57my.onrender.com" style="color: #333;">Render Production (cyclecare-57my)</option>
+                <option value="CUSTOM" style="color: #333;">Custom Server URL...</option>
+            </select>
+            <input type="text" id="customApiBase" placeholder="http://192.168.1.x:5000" style="display:none; width: 170px;" onchange="saveCustomApiBase()">
             <input type="password" id="adminKey" placeholder="Enter Admin Secret Key" value="8c2e54885f922a59917e38d497e970aaa25287fe99a2e3fd">
             <button onclick="saveAdminKey()">Connect</button>
+            <button onclick="loadAll()" style="background: rgba(255,255,255,0.25); color: white; border: 1px solid rgba(255,255,255,0.4);">🔄 Refresh</button>
+            <div id="connStatusBadge" style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:600; padding:6px 12px; border-radius:20px; background:rgba(0,0,0,0.25);">
+                <span id="connDot" style="width:10px; height:10px; border-radius:50%; background:#F59E0B; display:inline-block;"></span>
+                <span id="connText">Connecting...</span>
+            </div>
         </div>
     </header>
 
@@ -571,7 +582,7 @@
                         </tr>
                     </thead>
                     <tbody id="usersTable">
-                        <tr><td colspan="5" style="text-align:center; padding: 20px;">Loading registered users...</td></tr>
+                        <tr><td colspan="6" style="text-align:center; padding: 20px;">Loading registered users...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -727,7 +738,8 @@
         let isCreatingNewPublish = false;
 
         function getAdminKey() {
-            return document.getElementById('adminKey').value.trim();
+            const input = document.getElementById('adminKey');
+            return input ? input.value.trim() : '8c2e54885f922a59917e38d497e970aaa25287fe99a2e3fd';
         }
 
         function saveAdminKey() {
@@ -736,8 +748,85 @@
             loadAll();
         }
 
+        function getApiBase() {
+            const select = document.getElementById('apiBaseSelect');
+            if (select) {
+                if (select.value === 'CUSTOM') {
+                    const customInput = document.getElementById('customApiBase');
+                    if (customInput && customInput.value.trim()) {
+                        return customInput.value.trim().replace(/\/+$/, '');
+                    }
+                } else if (select.value) {
+                    return select.value.replace(/\/+$/, '');
+                }
+            }
+            const stored = localStorage.getItem('cyclecare_api_base');
+            if (stored) return stored.replace(/\/+$/, '');
+            if (window.location && window.location.protocol && window.location.protocol.startsWith('http')) {
+                return window.location.origin;
+            }
+            return 'http://localhost:5000';
+        }
+
+        function onServerChange() {
+            const select = document.getElementById('apiBaseSelect');
+            const customInput = document.getElementById('customApiBase');
+            if (select.value === 'CUSTOM') {
+                customInput.style.display = 'inline-block';
+                customInput.focus();
+            } else {
+                customInput.style.display = 'none';
+                localStorage.setItem('cyclecare_api_base', select.value);
+                showToast('Target server: ' + select.value, 'info');
+                loadAll();
+            }
+        }
+
+        function saveCustomApiBase() {
+            const customInput = document.getElementById('customApiBase');
+            const val = customInput ? customInput.value.trim() : '';
+            if (val) {
+                localStorage.setItem('cyclecare_api_base', val);
+                showToast('Target server: ' + val, 'info');
+                loadAll();
+            }
+        }
+
+        function setConnectionStatus(state, msg) {
+            const dot = document.getElementById('connDot');
+            const text = document.getElementById('connText');
+            if (!dot || !text) return;
+            if (state === 'connected') {
+                dot.style.background = '#10B981';
+                text.innerText = 'Connected: ' + (msg || 'Online');
+                text.style.color = '#FFFFFF';
+            } else if (state === 'connecting') {
+                dot.style.background = '#F59E0B';
+                text.innerText = 'Connecting...';
+                text.style.color = '#FFFFFF';
+            } else {
+                dot.style.background = '#EF4444';
+                text.innerText = msg || 'Disconnected';
+                text.style.color = '#FECACA';
+            }
+        }
+
+        async function apiFetch(endpoint, options = {}) {
+            const base = getApiBase();
+            const cleanBase = base.replace(/\/+$/, '');
+            const cleanEndpoint = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
+            const url = endpoint.startsWith('http') ? endpoint : `${cleanBase}${cleanEndpoint}`;
+            
+            const headers = Object.assign({
+                'x-admin-key': getAdminKey()
+            }, options.headers || {});
+            
+            return await fetch(url, { ...options, headers });
+        }
+
         function showToast(msg, type='success') {
             const t = document.getElementById('toast');
+            if (!t) return;
             t.innerText = msg;
             t.className = 'toast ' + type;
             t.style.display = 'block';
@@ -746,7 +835,8 @@
 
         function updateImagePreview(url) {
             const img = document.getElementById('imgPreview');
-            if(url && url.startsWith('http')) {
+            if (!img) return;
+            if (url && url.startsWith('http')) {
                 img.src = url;
             } else {
                 img.src = 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=100';
@@ -754,44 +844,62 @@
         }
 
         function toggleNotifyFields(checked) {
-            document.getElementById('modalNotifyFields').style.display = checked ? 'block' : 'none';
-        }
-
-        async function loadAll() {
-            loadStats();
-            loadInventory();
+            const el = document.getElementById('modalNotifyFields');
+            if (el) el.style.display = checked ? 'block' : 'none';
         }
 
         async function loadStats() {
             try {
-                const res = await fetch('/api/v1/admin/dashboard', {
-                    headers: { 'x-admin-key': getAdminKey() }
-                });
+                const res = await apiFetch('/api/v1/admin/dashboard');
+                if (!res.ok) {
+                    if (res.status === 401) {
+                        setConnectionStatus('error', '401 Unauthorized');
+                    } else {
+                        setConnectionStatus('error', 'HTTP ' + res.status);
+                    }
+                    return false;
+                }
                 const data = await res.json();
-                if(data.success && data.stats) {
+                if (data.success && data.stats) {
                     const st = data.stats;
                     const elReal = document.getElementById('stat-real-users');
                     const elDemo = document.getElementById('stat-demo-users');
                     const elChat = document.getElementById('stat-chat-messages');
-                    if (elReal) elReal.innerText = st.realUsersCount || '0';
-                    if (elDemo) elDemo.innerText = st.demoUsersCount || '0';
-                    if (elChat) elChat.innerText = st.totalCircleMessages || '0';
+                    const elProd = document.getElementById('stat-products');
+                    const elLive = document.getElementById('stat-live');
+                    const elDraft = document.getElementById('stat-drafts');
+                    
+                    if (elProd) elProd.innerText = st.totalProducts != null ? st.totalProducts : '0';
+                    if (elLive) elLive.innerText = st.liveProductsCount != null ? st.liveProductsCount : '0';
+                    if (elDraft) elDraft.innerText = st.draftProductsCount != null ? st.draftProductsCount : '0';
+                    if (elReal) elReal.innerText = st.realUsersCount != null ? st.realUsersCount : '0';
+                    if (elDemo) elDemo.innerText = st.demoUsersCount != null ? st.demoUsersCount : '0';
+                    if (elChat) elChat.innerText = st.totalCircleMessages != null ? st.totalCircleMessages : '0';
+                    return true;
                 }
-            } catch(e) {}
+                return false;
+            } catch (e) {
+                console.error('loadStats failed', e);
+                setConnectionStatus('error', 'Offline');
+                return false;
+            }
         }
 
         let allUsersCache = [];
 
         async function loadUsers() {
+            const tbody = document.getElementById('usersTable');
             try {
-                const res = await fetch('/api/v1/admin/users', {
-                    headers: { 'x-admin-key': getAdminKey() }
-                });
+                const res = await apiFetch('/api/v1/admin/users');
+                if (!res.ok) {
+                    const msg = res.status === 401 ? 'Unauthorized (401) — Invalid Admin Secret Key' : 'Server error (' + res.status + ')';
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ ${msg} <button class="btn-action-sm" onclick="loadUsers()" style="margin-left:8px;">Retry</button></td></tr>`;
+                    return;
+                }
                 const data = await res.json();
-                const tbody = document.getElementById('usersTable');
-                if(!tbody) return;
+                if (!tbody) return;
 
-                if(data.success && data.users && data.users.length > 0) {
+                if (data.success && data.users && data.users.length > 0) {
                     allUsersCache = data.users;
                     tbody.innerHTML = data.users.map(u => {
                         const prof = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles;
@@ -833,8 +941,7 @@
                     tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">No users registered yet.</td></tr>';
                 }
             } catch(e) {
-                const tbody = document.getElementById('usersTable');
-                if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; color: red;">Failed to load users.</td></tr>';
+                if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ Failed to connect to server. <button class="btn-action-sm" onclick="loadUsers()" style="margin-left:8px;">Retry</button></td></tr>`;
             }
         }
 
@@ -874,12 +981,9 @@
             btn.innerText = 'Saving...';
 
             try {
-                const res = await fetch(`/api/v1/admin/users/${userId}/tag`, {
+                const res = await apiFetch(`/api/v1/admin/users/${userId}/tag`, {
                     method: 'PATCH',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-admin-key': getAdminKey()
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         account_tag: accountTag,
                         display_name: displayName,
@@ -911,9 +1015,7 @@
             document.getElementById('userLogsModal').style.display = 'flex';
 
             try {
-                const res = await fetch(`/api/v1/admin/users/${userId}/cycle-logs`, {
-                    headers: { 'x-admin-key': getAdminKey() }
-                });
+                const res = await apiFetch(`/api/v1/admin/users/${userId}/cycle-logs`);
                 const data = await res.json();
                 if (data.success) {
                     const logs = data.period_logs || [];
@@ -933,7 +1035,7 @@
                     if (symptoms.length === 0) {
                         html += '<p style="color:var(--subtext); font-style:italic;">No symptoms logged.</p>';
                     } else {
-                        html += '<div style="display:flex; flex-wrap:wrap; gap:6px;">' + symptoms.map(s => `<span class="badge badge-draft">${s.symptom_name || 'Symptom'} (${s.severity || 'Mild'})</span>`).join('') + '</div>';
+                        html += '<div style="display:flex; flex-wrap:wrap; gap:6px;">' + symptoms.map(s => `<span class="badge badge-draft">${s.symptom_name || 'Symptom'} (${s.intensity || 'Mild'})</span>`).join('') + '</div>';
                     }
 
                     container.innerHTML = html;
@@ -950,20 +1052,23 @@
         }
 
         async function loadChatLogs() {
+            const tbody = document.getElementById('chatLogsTable');
             try {
-                const res = await fetch('/api/v1/admin/chat-logs', {
-                    headers: { 'x-admin-key': getAdminKey() }
-                });
+                const res = await apiFetch('/api/v1/admin/chat-logs');
+                if (!res.ok) {
+                    const msg = res.status === 401 ? 'Unauthorized (401) — Invalid Admin Secret Key' : 'Server error (' + res.status + ')';
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ ${msg} <button class="btn-action-sm" onclick="loadChatLogs()" style="margin-left:8px;">Retry</button></td></tr>`;
+                    return;
+                }
                 const data = await res.json();
-                const tbody = document.getElementById('chatLogsTable');
-                if(!tbody) return;
+                if (!tbody) return;
 
-                if(data.success && data.messages && data.messages.length > 0) {
+                if (data.success && data.messages && data.messages.length > 0) {
                     tbody.innerHTML = data.messages.map(m => {
                         const isItem = m.message_type === 'CARE_REQUEST' || m.message_type === 'CARE_ITEM_SENT';
                         const typeBadge = isItem ? '<span class="badge badge-cat">🎁 CARE ITEM</span>' : '<span class="badge badge-draft">TEXT</span>';
                         let itemDetails = '-';
-                        if(m.metadata && m.metadata.item_name) {
+                        if (m.metadata && m.metadata.item_name) {
                             itemDetails = `<strong>${m.metadata.item_name}</strong> (₹${m.metadata.item_price || '0'}) • ${m.metadata.status || ''}`;
                         }
                         const demoBadge = m.is_demo 
@@ -987,32 +1092,36 @@
                     tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">No chat messages exchanged yet.</td></tr>';
                 }
             } catch(e) {
-                const tbody = document.getElementById('chatLogsTable');
-                if(tbody) {
-                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: red;">Failed to load chat messages.</td></tr>';
-                }
+                if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ Failed to load chat messages. <button class="btn-action-sm" onclick="loadChatLogs()" style="margin-left:8px;">Retry</button></td></tr>`;
             }
         }
 
         async function loadInventory() {
+            const tbody = document.getElementById('inventoryTable');
             try {
-                const res = await fetch('/api/v1/admin/products', {
-                    headers: { 'x-admin-key': getAdminKey() }
-                });
+                const res = await apiFetch('/api/v1/admin/products');
+                if (!res.ok) {
+                    const msg = res.status === 401 ? 'Unauthorized (401) — Invalid Admin Secret Key' : 'Server error (' + res.status + ')';
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ ${msg} <button class="btn-action-sm" onclick="loadInventory()" style="margin-left:8px;">Retry</button></td></tr>`;
+                    return;
+                }
                 const data = await res.json();
-                if(data.success && data.products) {
+                if (data.success && data.products) {
                     allProductsCache = data.products;
-                    document.getElementById('stat-products').innerText = allProductsCache.length;
+                    const elProd = document.getElementById('stat-products');
+                    const elLive = document.getElementById('stat-live');
+                    const elDraft = document.getElementById('stat-drafts');
+                    if (elProd) elProd.innerText = allProductsCache.length;
                     
                     const liveCount = allProductsCache.filter(p => p.status === 'PUBLISHED' || (!p.status && p.is_active)).length;
                     const draftCount = allProductsCache.filter(p => p.status === 'DRAFT').length;
-                    document.getElementById('stat-live').innerText = liveCount;
-                    document.getElementById('stat-drafts').innerText = draftCount;
+                    if (elLive) elLive.innerText = liveCount;
+                    if (elDraft) elDraft.innerText = draftCount;
 
                     renderTable();
                 }
             } catch(e) {
-                document.getElementById('inventoryTable').innerHTML = '<tr><td colspan="6" style="text-align:center; color: red;">Failed to load store items.</td></tr>';
+                if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ Failed to load store items. <button class="btn-action-sm" onclick="loadInventory()" style="margin-left:8px;">Retry</button></td></tr>`;
             }
         }
 
@@ -1025,17 +1134,18 @@
 
         function renderTable() {
             const tbody = document.getElementById('inventoryTable');
+            if (!tbody) return;
             let items = [...allProductsCache];
 
-            if(currentFilter === 'PUBLISHED') {
+            if (currentFilter === 'PUBLISHED') {
                 items = items.filter(p => p.status === 'PUBLISHED' || (!p.status && p.is_active));
-            } else if(currentFilter === 'DRAFT') {
+            } else if (currentFilter === 'DRAFT') {
                 items = items.filter(p => p.status === 'DRAFT');
-            } else if(currentFilter === 'LOW_STOCK') {
+            } else if (currentFilter === 'LOW_STOCK') {
                 items = items.filter(p => p.stock <= 5);
             }
 
-            if(items.length === 0) {
+            if (items.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 20px;">No products match this filter.</td></tr>';
                 return;
             }
@@ -1098,7 +1208,7 @@
 
         async function submitProduct(status) {
             const data = getFormData();
-            if(!data.name || isNaN(data.price) || !data.sku) {
+            if (!data.name || isNaN(data.price) || !data.sku) {
                 showToast('Please enter Product Name, Price, and SKU!', 'error');
                 return;
             }
@@ -1106,16 +1216,13 @@
             data.status = status;
 
             try {
-                const res = await fetch('/api/v1/products', {
+                const res = await apiFetch('/api/v1/products', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-admin-key': getAdminKey()
-                    },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
                 const result = await res.json();
-                if(result.success) {
+                if (result.success) {
                     showToast(status === 'DRAFT' ? '💾 Product saved as Draft (not visible in APK)!' : '🎉 Product published live to Store!', 'success');
                     document.getElementById('productForm').reset();
                     updateImagePreview('');
@@ -1130,7 +1237,7 @@
 
         function openPublishModalFromForm() {
             const data = getFormData();
-            if(!data.name || isNaN(data.price) || !data.sku) {
+            if (!data.name || isNaN(data.price) || !data.sku) {
                 showToast('Please enter Product Name, Price, and SKU first!', 'error');
                 return;
             }
@@ -1168,21 +1275,21 @@
             const notifAudience = document.getElementById('modalNotifAudience').value;
 
             try {
-                if(isCreatingNewPublish) {
+                if (isCreatingNewPublish) {
                     // Create product as published
                     const data = getFormData();
                     data.status = 'PUBLISHED';
-                    const res = await fetch('/api/v1/products', {
+                    const res = await apiFetch('/api/v1/products', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-admin-key': getAdminKey() },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
                     const result = await res.json();
-                    if(result.success && result.product) {
-                        if(notifyUsers) {
-                            await fetch(`/api/v1/products/${result.product.id}/publish`, {
+                    if (result.success && result.product) {
+                        if (notifyUsers) {
+                            await apiFetch(`/api/v1/products/${result.product.id}/publish`, {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'x-admin-key': getAdminKey() },
+                                headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({
                                     notify_users: true,
                                     notification_title: notifTitle,
@@ -1195,11 +1302,11 @@
                         document.getElementById('productForm').reset();
                         updateImagePreview('');
                     }
-                } else if(pendingPublishId) {
+                } else if (pendingPublishId) {
                     // Publish existing product
-                    const res = await fetch(`/api/v1/products/${pendingPublishId}/publish`, {
+                    const res = await apiFetch(`/api/v1/products/${pendingPublishId}/publish`, {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-admin-key': getAdminKey() },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             notify_users: notifyUsers,
                             notification_title: notifTitle,
@@ -1208,7 +1315,7 @@
                         })
                     });
                     const result = await res.json();
-                    if(result.success) {
+                    if (result.success) {
                         showToast('🎉 Product is now LIVE in Android Store!', 'success');
                     }
                 }
@@ -1223,14 +1330,13 @@
         }
 
         async function handleUnpublishProduct(id) {
-            if(!confirm('Hide this product from Android Store? Users will no longer see it.')) return;
+            if (!confirm('Hide this product from Android Store? Users will no longer see it.')) return;
             try {
-                const res = await fetch(`/api/v1/products/${id}/unpublish`, {
-                    method: 'POST',
-                    headers: { 'x-admin-key': getAdminKey() }
+                const res = await apiFetch(`/api/v1/products/${id}/unpublish`, {
+                    method: 'POST'
                 });
                 const result = await res.json();
-                if(result.success) {
+                if (result.success) {
                     showToast('Product unpublished and hidden from Store!', 'success');
                     loadAll();
                 }
@@ -1241,9 +1347,9 @@
 
         async function sendProductNotificationAlert(id, name, price) {
             try {
-                const res = await fetch(`/api/v1/products/${id}/publish`, {
+                const res = await apiFetch(`/api/v1/products/${id}/publish`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-admin-key': getAdminKey() },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         notify_users: true,
                         notification_title: `New care essential: ${name}`,
@@ -1252,7 +1358,7 @@
                     })
                 });
                 const result = await res.json();
-                if(result.success) {
+                if (result.success) {
                     showToast('🔔 Notification alert dispatched to Android devices!', 'success');
                 }
             } catch(e) {
@@ -1261,14 +1367,13 @@
         }
 
         async function handleDeleteProduct(id) {
-            if(!confirm('Are you sure you want to delete this item completely?')) return;
+            if (!confirm('Are you sure you want to delete this item completely?')) return;
             try {
-                const res = await fetch('/api/v1/products/' + id, {
-                    method: 'DELETE',
-                    headers: { 'x-admin-key': getAdminKey() }
+                const res = await apiFetch('/api/v1/products/' + id, {
+                    method: 'DELETE'
                 });
                 const result = await res.json();
-                if(result.success) {
+                if (result.success) {
                     showToast('Item deleted from Store!', 'success');
                     loadAll();
                 } else {
@@ -1279,33 +1384,31 @@
             }
         }
 
-        // Initialize on page load
-        const savedKey = localStorage.getItem('cyclecare_admin_key');
-        if(savedKey) {
-            document.getElementById('adminKey').value = savedKey;
-        }
-
         let allDeliveriesCache = [];
         let currentSimPercent = 15;
 
         async function loadDeliveries() {
+            const tbody = document.getElementById('deliveriesTable');
             try {
-                const res = await fetch('/api/v1/admin/deliveries', {
-                    headers: { 'x-admin-key': getAdminKey() }
-                });
+                const res = await apiFetch('/api/v1/admin/deliveries');
+                if (!res.ok) {
+                    const msg = res.status === 401 ? 'Unauthorized (401) — Invalid Admin Secret Key' : 'Server error (' + res.status + ')';
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ ${msg} <button class="btn-action-sm" onclick="loadDeliveries()" style="margin-left:8px;">Retry</button></td></tr>`;
+                    return;
+                }
                 const data = await res.json();
-                if(data.success && data.deliveries) {
+                if (data.success && data.deliveries) {
                     allDeliveriesCache = data.deliveries;
                     renderDeliveries();
                 }
             } catch(e) {
-                console.error('Failed to load deliveries', e);
+                if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ Failed to load deliveries. <button class="btn-action-sm" onclick="loadDeliveries()" style="margin-left:8px;">Retry</button></td></tr>`;
             }
         }
 
         function renderDeliveries() {
             const tbody = document.getElementById('deliveriesTable');
-            if(!tbody) return;
+            if (!tbody) return;
 
             const readyCount = allDeliveriesCache.filter(d => d.status === 'READY_FOR_DELIVERY').length;
             const inTransitCount = allDeliveriesCache.filter(d => ['ACCEPTED', 'PICKED_UP', 'OUT_FOR_DELIVERY', 'ARRIVED'].includes(d.status)).length;
@@ -1315,11 +1418,11 @@
             const statTransit = document.getElementById('statInTransit');
             const statDeliv = document.getElementById('statDelivered');
 
-            if(statReady) statReady.innerText = readyCount;
-            if(statTransit) statTransit.innerText = inTransitCount;
-            if(statDeliv) statDeliv.innerText = deliveredCount;
+            if (statReady) statReady.innerText = readyCount;
+            if (statTransit) statTransit.innerText = inTransitCount;
+            if (statDeliv) statDeliv.innerText = deliveredCount;
 
-            if(allDeliveriesCache.length === 0) {
+            if (allDeliveriesCache.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">No deliveries found.</td></tr>';
                 return;
             }
@@ -1328,8 +1431,8 @@
                 const order = d.orders || {};
                 const agent = d.delivery_agents || {};
                 let statusBadge = '<span class="badge badge-draft">' + d.status + '</span>';
-                if(d.status === 'DELIVERED') statusBadge = '<span class="badge badge-live">✓ Delivered</span>';
-                else if(d.status === 'OUT_FOR_DELIVERY') statusBadge = '<span class="badge badge-cat">🚴 In Transit</span>';
+                if (d.status === 'DELIVERED') statusBadge = '<span class="badge badge-live">✓ Delivered</span>';
+                else if (d.status === 'OUT_FOR_DELIVERY') statusBadge = '<span class="badge badge-cat">🚴 In Transit</span>';
 
                 return `
                     <tr>
@@ -1356,9 +1459,9 @@
 
         async function triggerSimulate(deliveryId) {
             try {
-                await fetch('/api/v1/deliveries/' + deliveryId + '/simulate', {
+                await apiFetch('/api/v1/deliveries/' + deliveryId + '/simulate', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-admin-key': getAdminKey() }
+                    headers: { 'Content-Type': 'application/json' }
                 });
                 showToast('🚀 Live GPS simulation started along route!', 'success');
                 simulateAdminStep();
@@ -1369,13 +1472,13 @@
 
         function simulateAdminStep() {
             currentSimPercent += 25;
-            if(currentSimPercent > 85) currentSimPercent = 85;
+            if (currentSimPercent > 85) currentSimPercent = 85;
             const marker = document.getElementById('adminCourierMarker');
-            if(marker) {
+            if (marker) {
                 marker.style.left = currentSimPercent + '%';
             }
             const eta = document.getElementById('adminLiveEta');
-            if(eta) {
+            if (eta) {
                 eta.innerText = 'Progress: ' + currentSimPercent + '% • ETA ~' + Math.max(2, 20 - Math.floor(currentSimPercent / 5)) + ' min';
             }
             showToast('Courier advanced to ' + currentSimPercent + '%', 'info');
@@ -1383,20 +1486,20 @@
 
         async function completeAdminDelivery() {
             const demo = allDeliveriesCache.find(d => d.orders?.order_number === '#CC-DEMO-1001') || allDeliveriesCache[0];
-            if(!demo) return;
+            if (!demo) return;
             try {
-                const res = await fetch('/api/v1/deliveries/' + demo.id + '/complete', {
+                const res = await apiFetch('/api/v1/deliveries/' + demo.id + '/complete', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-admin-key': getAdminKey() },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ delivery_otp: demo.delivery_otp || '4821' })
                 });
                 const data = await res.json();
-                if(data.success) {
+                if (data.success) {
                     showToast('🎉 Order Delivered successfully with OTP verification!', 'success');
                     const marker = document.getElementById('adminCourierMarker');
-                    if(marker) marker.style.left = '85%';
+                    if (marker) marker.style.left = '85%';
                     const eta = document.getElementById('adminLiveEta');
-                    if(eta) eta.innerText = 'Delivered! • OTP 4821 Verified';
+                    if (eta) eta.innerText = 'Delivered! • OTP 4821 Verified';
                     loadDeliveries();
                 } else {
                     showToast('OTP verification failed: ' + data.message, 'error');
@@ -1408,18 +1511,17 @@
 
         async function resetDemoOrder() {
             try {
-                const res = await fetch('/api/v1/deliveries/demo/reset', {
-                    method: 'POST',
-                    headers: { 'x-admin-key': getAdminKey() }
+                const res = await apiFetch('/api/v1/deliveries/demo/reset', {
+                    method: 'POST'
                 });
                 const data = await res.json();
-                if(data.success) {
+                if (data.success) {
                     showToast('Demo order and delivery reset to READY_FOR_DELIVERY!', 'info');
                     currentSimPercent = 15;
                     const marker = document.getElementById('adminCourierMarker');
-                    if(marker) marker.style.left = '15%';
+                    if (marker) marker.style.left = '15%';
                     const eta = document.getElementById('adminLiveEta');
-                    if(eta) eta.innerText = 'Progress: 0% • ETA ~20 min';
+                    if (eta) eta.innerText = 'Progress: 0% • ETA ~20 min';
                     loadDeliveries();
                 }
             } catch(e) {
@@ -1428,15 +1530,18 @@
         }
 
         async function loadOrders() {
+            const tbody = document.getElementById('ordersTable');
             try {
-                const res = await fetch('/api/v1/admin/orders', {
-                    headers: { 'x-admin-key': getAdminKey() }
-                });
+                const res = await apiFetch('/api/v1/admin/orders');
+                if (!res.ok) {
+                    const msg = res.status === 401 ? 'Unauthorized (401) — Invalid Admin Secret Key' : 'Server error (' + res.status + ')';
+                    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ ${msg} <button class="btn-action-sm" onclick="loadOrders()" style="margin-left:8px;">Retry</button></td></tr>`;
+                    return;
+                }
                 const data = await res.json();
-                const tbody = document.getElementById('ordersTable');
-                if(!tbody) return;
+                if (!tbody) return;
 
-                if(data.success && data.orders && data.orders.length > 0) {
+                if (data.success && data.orders && data.orders.length > 0) {
                     tbody.innerHTML = data.orders.map(o => {
                         const isDemo = o.order_type === 'DEMO';
                         const demoBadge = isDemo 
@@ -1447,12 +1552,12 @@
                         const dateStr = new Date(o.created_at).toLocaleDateString() + ' ' + new Date(o.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
                         let stBadge = '<span class="badge badge-draft">' + (o.status || 'PENDING') + '</span>';
-                        if(o.status === 'PAID' || o.status === 'COMPLETED') stBadge = '<span class="badge badge-live">✓ ' + o.status + '</span>';
-                        else if(o.status === 'PROCESSING') stBadge = '<span class="badge badge-cat">⚙️ ' + o.status + '</span>';
+                        if (o.status === 'PAID' || o.status === 'COMPLETED') stBadge = '<span class="badge badge-live">✓ ' + o.status + '</span>';
+                        else if (o.status === 'PROCESSING') stBadge = '<span class="badge badge-cat">⚙️ ' + o.status + '</span>';
 
                         let delBadge = '<span class="badge badge-draft">' + (o.delivery_status || 'PENDING') + '</span>';
-                        if(o.delivery_status === 'DELIVERED') delBadge = '<span class="badge badge-live">✓ DELIVERED</span>';
-                        else if(o.delivery_status === 'OUT_FOR_DELIVERY') delBadge = '<span class="badge badge-cat">🚴 IN TRANSIT</span>';
+                        if (o.delivery_status === 'DELIVERED') delBadge = '<span class="badge badge-live">✓ DELIVERED</span>';
+                        else if (o.delivery_status === 'OUT_FOR_DELIVERY') delBadge = '<span class="badge badge-cat">🚴 IN TRANSIT</span>';
 
                         return `
                             <tr>
@@ -1489,21 +1594,20 @@
                     tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">No orders found in database.</td></tr>';
                 }
             } catch(e) {
-                const tbody = document.getElementById('ordersTable');
-                if(tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: red;">Failed to load orders.</td></tr>';
+                if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ Failed to load orders. <button class="btn-action-sm" onclick="loadOrders()" style="margin-left:8px;">Retry</button></td></tr>`;
             }
         }
 
         async function updateAdminOrderStatus(orderId, newStatus) {
-            if(!newStatus) return;
+            if (!newStatus) return;
             try {
-                const res = await fetch('/api/v1/admin/orders/' + orderId + '/status', {
+                const res = await apiFetch('/api/v1/admin/orders/' + orderId + '/status', {
                     method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json', 'x-admin-key': getAdminKey() },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ status: newStatus, delivery_status: newStatus === 'DELIVERED' ? 'DELIVERED' : undefined })
                 });
                 const data = await res.json();
-                if(data.success) {
+                if (data.success) {
                     showToast('Order #' + orderId.substring(0,8) + ' updated to ' + newStatus, 'success');
                     loadOrders();
                     loadDeliveries();
@@ -1517,15 +1621,63 @@
         }
 
         async function loadAll() {
-            loadStats();
-            loadInventory();
-            loadDeliveries();
-            loadOrders();
-            loadUsers();
-            loadChatLogs();
+            setConnectionStatus('connecting');
+            const results = await Promise.allSettled([
+                loadStats(),
+                loadInventory(),
+                loadDeliveries(),
+                loadOrders(),
+                loadUsers(),
+                loadChatLogs()
+            ]);
+            const statsOk = results[0].status === 'fulfilled' && results[0].value === true;
+            if (statsOk) {
+                const host = getApiBase().replace(/^https?:\/\//, '');
+                setConnectionStatus('connected', host);
+            }
         }
 
-        loadAll();
+        // Page load initialization
+        (function init() {
+            const savedKey = localStorage.getItem('cyclecare_admin_key');
+            if (savedKey) {
+                const input = document.getElementById('adminKey');
+                if (input) input.value = savedKey;
+            }
+            const savedBase = localStorage.getItem('cyclecare_api_base');
+            const sel = document.getElementById('apiBaseSelect');
+            const customIn = document.getElementById('customApiBase');
+            if (savedBase && sel) {
+                let match = false;
+                for (let i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].value === savedBase) {
+                        sel.selectedIndex = i;
+                        match = true;
+                        break;
+                    }
+                }
+                if (!match) {
+                    sel.value = 'CUSTOM';
+                    if (customIn) {
+                        customIn.style.display = 'inline-block';
+                        customIn.value = savedBase;
+                    }
+                }
+            } else if (window.location && window.location.protocol && window.location.protocol.startsWith('http') && sel) {
+                for (let i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].value === window.location.origin) {
+                        sel.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            loadAll();
+            setInterval(() => {
+                if (document.visibilityState === 'visible') {
+                    loadAll();
+                }
+            }, 30000);
+        })();
     </script>
 </body>
 </html>
