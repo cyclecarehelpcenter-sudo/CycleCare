@@ -78,7 +78,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Welcome Back"
-                    android:textColor="#000000"
+                    android:textColor="@color/textPrimary"
                     android:textSize="19sp"
                     android:textStyle="bold" />
 
@@ -107,7 +107,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="SIGN IN"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.06" />
@@ -117,17 +117,17 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:text="Encrypted offline cycle space"
-                android:textColor="#334155"
+                android:textColor="@color/textSecondary"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
-            <!-- Email Label & Inset Input (Bold Solid Black Font) -->
+            <!-- Email Label & Inset Input -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="20dp"
                 android:text="EMAIL ADDRESS"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.05" />
@@ -141,35 +141,52 @@
                 android:hint="Enter your email"
                 android:inputType="textEmailAddress"
                 android:paddingHorizontal="16dp"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textStyle="bold"
-                android:textColorHint="#94A3B8"
+                android:textColorHint="@color/textHint"
                 android:textSize="15sp" />
 
-            <!-- Password Label & Inset Input (Bold Solid Black Font) -->
+            <!-- Password Label & Inset Input with Visibility Toggle -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
                 android:text="PASSWORD"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.05" />
 
-            <EditText
-                android:id="@+id/et_password"
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="52dp"
-                android:layout_marginTop="8dp"
-                android:background="@drawable/neu_input"
-                android:hint="Enter your password"
-                android:inputType="textPassword"
-                android:paddingHorizontal="16dp"
-                android:textColor="#000000"
-                android:textStyle="bold"
-                android:textColorHint="#94A3B8"
-                android:textSize="15sp" />
+                android:layout_marginTop="8dp">
+
+                <EditText
+                    android:id="@+id/et_password"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:background="@drawable/neu_input"
+                    android:hint="Enter your password"
+                    android:inputType="textPassword"
+                    android:paddingStart="16dp"
+                    android:paddingEnd="48dp"
+                    android:textColor="@color/textPrimary"
+                    android:textStyle="bold"
+                    android:textColorHint="@color/textHint"
+                    android:textSize="15sp" />
+
+                <ImageView
+                    android:id="@+id/iv_toggle_password"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_gravity="end|center_vertical"
+                    android:layout_marginEnd="6dp"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_eye_hidden"
+                    android:contentDescription="Toggle Password Visibility"
+                    android:background="?attr/selectableItemBackgroundBorderless" />
+            </FrameLayout>
 
             <!-- Forgot Password Link -->
             <TextView
@@ -191,7 +208,7 @@
                 android:layout_marginTop="14dp"
                 android:checked="true"
                 android:text="I agree to Terms &amp; Conditions and Privacy Policy"
-                android:textColor="#475569"
+                android:textColor="@color/textSecondary"
                 android:textSize="11sp" />
 
             <!-- Elevated Pill Button -->
@@ -227,7 +244,7 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="QUICK 1-TAP DEMO LOGINS"
-            android:textColor="#64748B"
+            android:textColor="@color/textSecondary"
             android:textSize="11sp"
             android:textStyle="bold"
             android:letterSpacing="0.08" />
@@ -236,6 +253,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="10dp"
+            android:layout_marginBottom="28dp"
             android:orientation="horizontal"
             android:gravity="center">
 
@@ -280,16 +298,6 @@
                 android:textStyle="bold"
                 app:backgroundTint="@null" />
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/tv_admin_panel_hint"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:layout_marginBottom="28dp"
-            android:text="💻 Website Admin: admin@cyclecare.app • AdminPassword123!"
-            android:textColor="#64748B"
-            android:textSize="11sp" />
 
     </LinearLayout>
 </ScrollView>

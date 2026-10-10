@@ -53,6 +53,20 @@ public class LoginActivity extends AppCompatActivity {
         ivPanda = findViewById(R.id.iv_panda);
         flPandaFrame = findViewById(R.id.fl_panda_frame);
 
+        ImageView ivTogglePassword = findViewById(R.id.iv_toggle_password);
+        if (ivTogglePassword != null) {
+            ivTogglePassword.setOnClickListener(v -> {
+                if (etPassword.getTransformationMethod() instanceof android.text.method.PasswordTransformationMethod) {
+                    etPassword.setTransformationMethod(android.text.method.HideReturnsTransformationMethod.getInstance());
+                    ivTogglePassword.setImageResource(R.drawable.ic_eye_visible);
+                } else {
+                    etPassword.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
+                    ivTogglePassword.setImageResource(R.drawable.ic_eye_hidden);
+                }
+                etPassword.setSelection(etPassword.getText().length());
+            });
+        }
+
         // Pre-fill demo test credentials
         etEmail.setText("demo@cyclecare.com");
         etPassword.setText("password123");

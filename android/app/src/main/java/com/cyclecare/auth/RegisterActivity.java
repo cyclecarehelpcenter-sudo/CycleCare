@@ -63,6 +63,20 @@ public class RegisterActivity extends AppCompatActivity {
         ivPanda = findViewById(R.id.iv_panda);
         flPandaFrame = findViewById(R.id.fl_panda_frame);
 
+        ImageView ivTogglePassword = findViewById(R.id.iv_toggle_password_reg);
+        if (ivTogglePassword != null) {
+            ivTogglePassword.setOnClickListener(v -> {
+                if (etPassword.getTransformationMethod() instanceof android.text.method.PasswordTransformationMethod) {
+                    etPassword.setTransformationMethod(android.text.method.HideReturnsTransformationMethod.getInstance());
+                    ivTogglePassword.setImageResource(R.drawable.ic_eye_visible);
+                } else {
+                    etPassword.setTransformationMethod(android.text.method.PasswordTransformationMethod.getInstance());
+                    ivTogglePassword.setImageResource(R.drawable.ic_eye_hidden);
+                }
+                etPassword.setSelection(etPassword.getText().length());
+            });
+        }
+
         setupGenderSelectors();
         setupUsageModeSelectors();
 
@@ -168,6 +182,7 @@ public class RegisterActivity extends AppCompatActivity {
 
     private void setupGenderSelectors() {
         if (btnGenderFemale == null || btnGenderMale == null) return;
+        int unselectedColor = androidx.core.content.ContextCompat.getColor(this, R.color.textPrimary);
 
         btnGenderFemale.setOnClickListener(v -> {
             selectedGender = "FEMALE";
@@ -175,7 +190,7 @@ public class RegisterActivity extends AppCompatActivity {
             btnGenderFemale.setTextColor(getResources().getColor(R.color.textOnPrimary));
 
             btnGenderMale.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnGenderMale.setTextColor(0xFF000000);
+            btnGenderMale.setTextColor(unselectedColor);
 
             if (btnModeTrack != null) {
                 btnModeTrack.performClick();
@@ -189,7 +204,7 @@ public class RegisterActivity extends AppCompatActivity {
             btnGenderMale.setTextColor(getResources().getColor(R.color.textOnPrimary));
 
             btnGenderFemale.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnGenderFemale.setTextColor(0xFF000000);
+            btnGenderFemale.setTextColor(unselectedColor);
 
             if (btnModePartner != null) {
                 btnModePartner.performClick();
@@ -200,6 +215,7 @@ public class RegisterActivity extends AppCompatActivity {
 
     private void setupUsageModeSelectors() {
         if (btnModeTrack == null || btnModePartner == null || btnModeBoth == null) return;
+        int unselectedColor = androidx.core.content.ContextCompat.getColor(this, R.color.textPrimary);
 
         btnModeTrack.setOnClickListener(v -> {
             selectedUsageMode = "TRACK_CYCLE";
@@ -207,10 +223,10 @@ public class RegisterActivity extends AppCompatActivity {
             btnModeTrack.setTextColor(getResources().getColor(R.color.textOnPrimary));
 
             btnModePartner.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnModePartner.setTextColor(0xFF000000);
+            btnModePartner.setTextColor(unselectedColor);
 
             btnModeBoth.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnModeBoth.setTextColor(0xFF000000);
+            btnModeBoth.setTextColor(unselectedColor);
 
             tvPandaHint.setText("Track your cycle, symptoms, and health signals privately.");
         });
@@ -221,10 +237,10 @@ public class RegisterActivity extends AppCompatActivity {
             btnModePartner.setTextColor(getResources().getColor(R.color.textOnPrimary));
 
             btnModeTrack.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnModeTrack.setTextColor(0xFF000000);
+            btnModeTrack.setTextColor(unselectedColor);
 
             btnModeBoth.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnModeBoth.setTextColor(0xFF000000);
+            btnModeBoth.setTextColor(unselectedColor);
 
             tvPandaHint.setText("Support your partner with care kits, reminders, and gifts!");
         });
@@ -235,10 +251,10 @@ public class RegisterActivity extends AppCompatActivity {
             btnModeBoth.setTextColor(getResources().getColor(R.color.textOnPrimary));
 
             btnModeTrack.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnModeTrack.setTextColor(0xFF000000);
+            btnModeTrack.setTextColor(unselectedColor);
 
             btnModePartner.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnModePartner.setTextColor(0xFF000000);
+            btnModePartner.setTextColor(unselectedColor);
 
             tvPandaHint.setText("Best of both! Track your cycle and support each other.");
         });

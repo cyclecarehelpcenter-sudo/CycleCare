@@ -43,12 +43,15 @@
 | **TASK-04** | Global Error Monitoring Architecture | P2 | FIXED AND TESTED | `database/migrations/009_error_monitoring_and_push_tokens.sql`, `backend/src/controllers/monitoringController.js`, `backend/src/routes/monitoringRoutes.js`, `backend/src/middleware/errorHandler.js`, `backend/src/views/admin.html`, Android `ErrorMonitoringManager.java`, `CycleCareApp.java` | Created `app_error_logs` table in Supabase PostgreSQL; added `/api/v1/monitoring/errors`, `/api/v1/admin/errors`, and `/api/v1/admin/errors/:id/resolve`; wired backend unhandled 5xx errors; wired Android uncaught exception handler; added live error table and resolution actions in Admin Control Panel. |
 | **TASK-05** | FCM User-to-User Chat Push Notifications | P2 | FIXED AND TESTED | `database/migrations/009_error_monitoring_and_push_tokens.sql`, `backend/src/services/notificationService.js`, `backend/src/controllers/chatController.js`, Android `CycleCareMessagingService.java`, `DiscreetNotificationManager.java`, `NotificationTestReceiver.java` | Created `device_tokens` table in Supabase PostgreSQL; added token registration endpoint; wired `sendMessage` and `sendCareItem` to dispatch push notifications to recipient devices; handled incoming chat push in Android to show discreet notifications opening `CircleChatActivity`. |
 | **TASK-06** | Android UI/UX Polish & Neumorphic Consistency | P3 | VERIFIED & MAINTAINED | Android layouts, styles, themes, `CycleCareApp.java` | Verified cohesive deep navy + berry pink theme, verified zero regressions or touch to Panda mascot animations (`panda_idle`, `panda_blink`, `panda_wave`, `panda_shy`). |
+| **TASK-07** | Panda Mascot Restoration & Login / Register UI Polish | P1 | FIXED AND VERIFIED | `android/app/src/main/res/drawable/panda_{idle,blink,wave,shy}.png`, `neu_input.xml`, `ic_eye_{visible,hidden}.xml`, `activity_login.xml`, `LoginActivity.java`, `activity_register.xml`, `RegisterActivity.java` | Naive global color keying had converted panda's white fur into transparent holes across the image, producing dark/hollow appearance in dark mode. Restored high-res original assets using boundary-constrained GrabCut segmentation preserving 100% solid white fur, rosy cheeks, black ears, and pink hoodie. Fixed hardcoded black texts on dark surfaces, added password visibility toggles, removed public admin plaintext credentials from client UI, and ensured theme-adaptive unselected button states. |
 
 ---
 
 ## 3. VERIFICATION EVIDENCE
 
-- **Backend Integration Audit Suite:** 30/30 tests passed (`tests/integration_audit_suite.test.js`, `tests/api.test.js`) across 2 suites in 41.9s.
-- **Database Migrations:** Applied migration `009_error_monitoring_and_push_tokens.sql` successfully on Supabase PostgreSQL.
-- **Android Compilation:** Gradle `assembleDebug` completed with `BUILD SUCCESSFUL` in 28s.
-- **Device Deployment:** Streamed installation to live Android device (`UT03032274562709251`) succeeded with status `Success`.
+- **Backend Integration Audit Suite:** 30/30 tests passed (`tests/integration_audit_suite.test.js`, `tests/api.test.js`) across 2 suites in 54.8s.
+- **Android Compilation:** Gradle `assembleDebug` completed with `BUILD SUCCESSFUL in 40s`.
+- **Mascot Integrity:** 4 restored poses (`panda_idle`, `panda_blink`, `panda_wave`, `panda_shy`) visually verified on dark navy backgrounds with 100% solid white fur and zero transparency holes.
+- **Client Security:** Public admin credentials hint completely removed from client UI.
+- **Dark Mode Contrast:** Text inputs and labels updated to `@color/textPrimary` and `@color/textSecondary` across Login and Registration screens.
+
