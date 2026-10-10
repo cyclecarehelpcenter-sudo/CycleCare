@@ -27,6 +27,7 @@ router.post('/:id/restock-notify', authenticateToken, productController.subscrib
 // Admin-only management routes
 router.post('/', adminAuth, productController.createProduct);
 router.put('/:id', adminAuth, productController.updateProduct);
+router.patch('/:id', adminAuth, productController.updateProduct);
 router.delete('/:id', adminAuth, productController.deleteProduct);
 router.post('/:id/publish', adminAuth, productController.publishProduct);
 router.post('/:id/unpublish', adminAuth, productController.unpublishProduct);

@@ -516,6 +516,38 @@
                     </div>
                 </div>
             </div>
+        </div>
+
+        <!-- Live Orders & Purchases Manager -->
+        <div class="card" style="margin-top: 28px;">
+            <div class="card-title">
+                <span>📦 Real &amp; Demo Orders Management</span>
+                <button onclick="loadOrders()" style="font-size: 12px; padding: 6px 12px; background: #F1F5F9; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-weight: 600;">🔄 Refresh Orders</button>
+            </div>
+            <p style="font-size: 12px; color: var(--subtext); margin-top: -10px; margin-bottom: 16px;">
+                Manage customer orders placed in Mobile Store, track payment status, update fulfillment transitions, and inspect Real purchases vs Demo test orders.
+            </p>
+
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order # &amp; Date</th>
+                            <th>Customer / Account</th>
+                            <th>Order Items</th>
+                            <th>Total Amount</th>
+                            <th>Order Status</th>
+                            <th>Delivery Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersTable">
+                        <tr><td colspan="7" style="text-align:center; padding: 20px;">Loading customer orders...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Registered Accounts: Real vs Demo Accounts Manager -->
         <div class="card" style="margin-top: 28px;">
             <div class="card-title">
@@ -919,8 +951,8 @@
 
         async function loadChatLogs() {
             try {
-                const res = await fetch('/api/v1/chat/messages/a1111111-0000-0000-0000-000000000001', {
-                    headers: { 'x-admin-key': getAdminKey(), 'Authorization': 'Bearer ' + (localStorage.getItem('cyclecare_jwt') || '') }
+                const res = await fetch('/api/v1/admin/chat-logs', {
+                    headers: { 'x-admin-key': getAdminKey() }
                 });
                 const data = await res.json();
                 const tbody = document.getElementById('chatLogsTable');
@@ -934,47 +966,30 @@
                         if(m.metadata && m.metadata.item_name) {
                             itemDetails = `<strong>${m.metadata.item_name}</strong> (₹${m.metadata.item_price || '0'}) • ${m.metadata.status || ''}`;
                         }
+                        const demoBadge = m.is_demo 
+                            ? '<span class="badge" style="background:#F1F5F9; color:#475569; font-size:10px;">DEMO</span>'
+                            : '<span class="badge" style="background:#DCFCE7; color:#166534; font-size:10px;">REAL</span>';
 
                         return `
                             <tr>
-                                <td><strong>Partner Circle</strong></td>
+                                <td>
+                                    <strong>${m.sender_name} &rarr; ${m.receiver_name}</strong>
+                                    <div>${demoBadge} <span style="font-size:11px; color:var(--subtext);">${m.sender_email || ''}</span></div>
+                                </td>
                                 <td>${typeBadge}</td>
-                                <td>${m.content}</td>
+                                <td>${m.content || ''}</td>
                                 <td style="font-size:11px;">${itemDetails}</td>
-                                <td style="font-size:11px; color:var(--subtext);">${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
+                                <td style="font-size:11px; color:var(--subtext);">${new Date(m.created_at).toLocaleDateString()} ${new Date(m.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}</td>
                             </tr>
                         `;
                     }).join('');
                 } else {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td><strong>Aastha &rarr; Rahul (Husband)</strong></td>
-                            <td><span class="badge badge-cat">🎁 CARE REQUEST</span></td>
-                            <td>Having some cramps. Can you get me a heating patch and dark chocolate?</td>
-                            <td style="font-size:11px;"><strong>Instant Warmth Heat Patch</strong> (₹199)</td>
-                            <td style="font-size:11px; color:var(--subtext);">Today 12:15 PM</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Rahul &rarr; Aastha (Wife)</strong></td>
-                            <td><span class="badge badge-live">✓ CARE ITEM ORDERED</span></td>
-                            <td>Ordered heat patch and chocolate for you! On the way ❤️</td>
-                            <td style="font-size:11px;"><strong>CycleCare Dark Comfort Chocolate</strong> (₹120)</td>
-                            <td style="font-size:11px; color:var(--subtext);">Today 12:18 PM</td>
-                        </tr>
-                    `;
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 20px;">No chat messages exchanged yet.</td></tr>';
                 }
             } catch(e) {
                 const tbody = document.getElementById('chatLogsTable');
                 if(tbody) {
-                    tbody.innerHTML = `
-                        <tr>
-                            <td><strong>Aastha &rarr; Rahul (Husband)</strong></td>
-                            <td><span class="badge badge-cat">🎁 CARE REQUEST</span></td>
-                            <td>Having some cramps. Can you get me a heating patch and dark chocolate?</td>
-                            <td style="font-size:11px;"><strong>Instant Warmth Heat Patch</strong> (₹199)</td>
-                            <td style="font-size:11px; color:var(--subtext);">Today 12:15 PM</td>
-                        </tr>
-                    `;
+                    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: red;">Failed to load chat messages.</td></tr>';
                 }
             }
         }
@@ -1412,10 +1427,100 @@
             }
         }
 
+        async function loadOrders() {
+            try {
+                const res = await fetch('/api/v1/admin/orders', {
+                    headers: { 'x-admin-key': getAdminKey() }
+                });
+                const data = await res.json();
+                const tbody = document.getElementById('ordersTable');
+                if(!tbody) return;
+
+                if(data.success && data.orders && data.orders.length > 0) {
+                    tbody.innerHTML = data.orders.map(o => {
+                        const isDemo = o.order_type === 'DEMO';
+                        const demoBadge = isDemo 
+                            ? '<span class="badge" style="background:#F1F5F9; color:#475569; font-size:10px;">DEMO ORDER</span>'
+                            : '<span class="badge" style="background:#DCFCE7; color:#166534; font-size:10px; font-weight:bold;">REAL PURCHASE</span>';
+                        
+                        const itemsList = (o.order_items || []).map(i => `${i.product_name_snapshot || i.product_name || 'Care Item'} (x${i.quantity})`).join(', ') || 'CycleCare Package';
+                        const dateStr = new Date(o.created_at).toLocaleDateString() + ' ' + new Date(o.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+                        let stBadge = '<span class="badge badge-draft">' + (o.status || 'PENDING') + '</span>';
+                        if(o.status === 'PAID' || o.status === 'COMPLETED') stBadge = '<span class="badge badge-live">✓ ' + o.status + '</span>';
+                        else if(o.status === 'PROCESSING') stBadge = '<span class="badge badge-cat">⚙️ ' + o.status + '</span>';
+
+                        let delBadge = '<span class="badge badge-draft">' + (o.delivery_status || 'PENDING') + '</span>';
+                        if(o.delivery_status === 'DELIVERED') delBadge = '<span class="badge badge-live">✓ DELIVERED</span>';
+                        else if(o.delivery_status === 'OUT_FOR_DELIVERY') delBadge = '<span class="badge badge-cat">🚴 IN TRANSIT</span>';
+
+                        return `
+                            <tr>
+                                <td>
+                                    <strong>${o.order_number || ('#CC-' + o.id.substring(0,8))}</strong>
+                                    <div style="font-size:11px; color:var(--subtext);">${dateStr}</div>
+                                </td>
+                                <td>
+                                    <div style="font-weight:600;">${o.users?.email || 'Customer'}</div>
+                                    <div style="margin-top:2px;">${demoBadge}</div>
+                                </td>
+                                <td style="max-width:240px; font-size:12px;">
+                                    ${itemsList}
+                                </td>
+                                <td>
+                                    <strong style="color:var(--primary-dark); font-size:14px;">₹${o.total_amount || '0'}</strong>
+                                </td>
+                                <td>${stBadge}</td>
+                                <td>${delBadge}</td>
+                                <td>
+                                    <select onchange="updateAdminOrderStatus('${o.id}', this.value)" style="font-size:11px; padding:4px 6px; border-radius:4px; border:1px solid var(--border);">
+                                        <option value="">Change Status...</option>
+                                        <option value="PAID">PAID</option>
+                                        <option value="PROCESSING">PROCESSING</option>
+                                        <option value="PACKED">PACKED</option>
+                                        <option value="DELIVERED">DELIVERED</option>
+                                        <option value="CANCELLED">CANCELLED</option>
+                                    </select>
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">No orders found in database.</td></tr>';
+                }
+            } catch(e) {
+                const tbody = document.getElementById('ordersTable');
+                if(tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color: red;">Failed to load orders.</td></tr>';
+            }
+        }
+
+        async function updateAdminOrderStatus(orderId, newStatus) {
+            if(!newStatus) return;
+            try {
+                const res = await fetch('/api/v1/admin/orders/' + orderId + '/status', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'x-admin-key': getAdminKey() },
+                    body: JSON.stringify({ status: newStatus, delivery_status: newStatus === 'DELIVERED' ? 'DELIVERED' : undefined })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    showToast('Order #' + orderId.substring(0,8) + ' updated to ' + newStatus, 'success');
+                    loadOrders();
+                    loadDeliveries();
+                    loadStats();
+                } else {
+                    showToast('Update failed: ' + data.message, 'error');
+                }
+            } catch(e) {
+                showToast('Failed to update order status', 'error');
+            }
+        }
+
         async function loadAll() {
             loadStats();
             loadInventory();
             loadDeliveries();
+            loadOrders();
             loadUsers();
             loadChatLogs();
         }

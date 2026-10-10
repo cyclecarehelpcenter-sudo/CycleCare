@@ -1,6 +1,8 @@
 const supabase = require('../config/supabase');
 const { sendProductCampaignNotification } = require('../services/notificationService');
 
+const getActorId = (user) => (user && user.id && user.id !== '00000000-0000-0000-0000-000000000000') ? user.id : null;
+
 // Public Product Catalog Browsing
 const getProducts = async (req, res, next) => {
   try {
@@ -142,13 +144,13 @@ const createProduct = async (req, res, next) => {
       previous_stock: 0,
       new_stock: numStock,
       reason: 'Initial Product Creation',
-      actor_id: req.user?.id || null
+      actor_id: getActorId(req.user)
     }]);
 
     // Product Activity Log
     await supabase.from('product_activity_logs').insert([{
       product_id: product.id,
-      actor_id: req.user?.id || null,
+      actor_id: getActorId(req.user),
       action: 'PRODUCT_CREATED',
       new_value: { status: productStatus, price: numPrice, stock: numStock }
     }]);
@@ -183,7 +185,7 @@ const updateProduct = async (req, res, next) => {
         previous_stock: existing.stock,
         new_stock: newStock,
         reason: 'Admin Manual Stock Adjustment',
-        actor_id: req.user?.id || null
+        actor_id: getActorId(req.user)
       }]);
     }
 
@@ -198,7 +200,7 @@ const updateProduct = async (req, res, next) => {
 
     await supabase.from('product_activity_logs').insert([{
       product_id: productId,
-      actor_id: req.user?.id || null,
+      actor_id: getActorId(req.user),
       action: 'PRODUCT_UPDATED',
       old_value: existing,
       new_value: updated
@@ -230,7 +232,7 @@ const publishProduct = async (req, res, next) => {
     // Product Activity Log
     await supabase.from('product_activity_logs').insert([{
       product_id: productId,
-      actor_id: req.user?.id || null,
+      actor_id: getActorId(req.user),
       action: 'PRODUCT_PUBLISHED',
       new_value: { status: 'PUBLISHED' }
     }]);

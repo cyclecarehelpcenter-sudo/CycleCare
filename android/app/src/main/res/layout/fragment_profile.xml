@@ -12,13 +12,30 @@
         android:orientation="vertical"
         android:padding="20dp">
 
-        <TextView
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Profile &amp; Settings"
-            android:textColor="#000000"
-            android:textSize="24sp"
-            android:textStyle="bold" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Profile &amp; Settings"
+                android:textColor="@color/textPrimary"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+
+            <ImageButton
+                android:id="@+id/btn_profile_settings_top"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_neu_circle_btn"
+                android:src="@drawable/ic_settings"
+                app:tint="@color/textPrimary"
+                android:contentDescription="Settings" />
+        </LinearLayout>
 
         <!-- User Information Card (Soft Neumorphic) -->
         <LinearLayout
@@ -50,7 +67,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="14dp"
                 android:text="CycleCare User"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="20sp"
                 android:textStyle="bold" />
 
@@ -209,7 +226,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="🔍 Find &amp; Follow Circle Members"
-                    android:textColor="#000000"
+                    android:textColor="@color/textPrimary"
                     android:textSize="14sp"
                     android:textStyle="bold" />
             </LinearLayout>
@@ -230,8 +247,8 @@
                     android:layout_weight="1"
                     android:background="@null"
                     android:hint="Search user by name or email..."
-                    android:textColor="#000000"
-                    android:textColorHint="#94A3B8"
+                    android:textColor="@color/textPrimary"
+                    android:textColorHint="@color/textHint"
                     android:textSize="13sp"
                     android:imeOptions="actionSearch"
                     android:inputType="text" />
@@ -425,7 +442,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Partner &amp; Sharing"
-                        android:textColor="#000000"
+                        android:textColor="@color/textPrimary"
                         android:textSize="17sp"
                         android:textStyle="bold" />
 
@@ -486,7 +503,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Circle Care Chat 💬"
-                    android:textColor="#000000"
+                    android:textColor="@color/textPrimary"
                     android:textSize="17sp"
                     android:textStyle="bold" />
 
@@ -544,7 +561,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="My Orders &amp; Care Deliveries"
-                    android:textColor="#000000"
+                    android:textColor="@color/textPrimary"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -595,7 +612,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Delivery Addresses"
-                    android:textColor="#000000"
+                    android:textColor="@color/textPrimary"
                     android:textSize="16sp"
                     android:textStyle="bold" />
 
@@ -661,7 +678,7 @@
             android:layout_height="48dp"
             android:layout_marginTop="16dp"
             android:text="Privacy &amp; Custom Settings"
-            android:textColor="#000000"
+            android:textColor="@color/textPrimary"
             android:textSize="13sp"
             android:textStyle="bold"
             app:cornerRadius="24dp"

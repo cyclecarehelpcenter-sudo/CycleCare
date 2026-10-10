@@ -84,9 +84,21 @@ public class LocaleHelper {
         Locale locale = "hi".equals(lang) ? new Locale("hi") : Locale.ENGLISH;
         Locale.setDefault(locale);
         Resources resources = context.getResources();
-        Configuration config = resources.getConfiguration();
+        Configuration config = new Configuration(resources.getConfiguration());
         config.setLocale(locale);
         resources.updateConfiguration(config, resources.getDisplayMetrics());
+    }
+
+    public static Context applyLocale(Context context) {
+        String lang = getLanguage(context);
+        Locale locale = "hi".equals(lang) ? new Locale("hi") : Locale.ENGLISH;
+        Locale.setDefault(locale);
+
+        Resources resources = context.getResources();
+        Configuration config = new Configuration(resources.getConfiguration());
+        config.setLocale(locale);
+        resources.updateConfiguration(config, resources.getDisplayMetrics());
+        return context.createConfigurationContext(config);
     }
 
     public static String t(Context context, String key, String defaultVal) {

@@ -166,41 +166,69 @@ public class CalendarFragment extends Fragment {
         Button btnSave = sheet.findViewById(R.id.btn_save_reminder);
 
         final String[] selectedTime = {"12:00 AM Midnight"};
+        final int[] selectedHour = {0};
+        final int[] selectedMin = {0};
+
+        int primaryColor = getResources().getColor(R.color.textPrimary);
+        int onPrimaryColor = getResources().getColor(R.color.textOnPrimary);
 
         btnMidnight.setOnClickListener(v -> {
             selectedTime[0] = "12:00 AM Midnight";
+            selectedHour[0] = 0;
+            selectedMin[0] = 0;
             btnMidnight.setBackgroundResource(R.drawable.bg_m3_button);
-            btnMidnight.setTextColor(0xFFFFFFFF);
+            btnMidnight.setTextColor(onPrimaryColor);
             btnMorning.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnMorning.setTextColor(0xFF000000);
+            btnMorning.setTextColor(primaryColor);
             btnNight.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnNight.setTextColor(0xFF000000);
+            btnNight.setTextColor(primaryColor);
+            if (btnCustom != null) {
+                btnCustom.setBackgroundResource(R.drawable.bg_neu_card_raised);
+                btnCustom.setTextColor(getResources().getColor(R.color.colorPrimary));
+                btnCustom.setText("⏰ Choose Custom Time (Pick Any Time)");
+            }
         });
 
         btnMorning.setOnClickListener(v -> {
             selectedTime[0] = "9:00 AM Morning";
+            selectedHour[0] = 9;
+            selectedMin[0] = 0;
             btnMorning.setBackgroundResource(R.drawable.bg_m3_button);
-            btnMorning.setTextColor(0xFFFFFFFF);
+            btnMorning.setTextColor(onPrimaryColor);
             btnMidnight.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnMidnight.setTextColor(0xFF000000);
+            btnMidnight.setTextColor(primaryColor);
             btnNight.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnNight.setTextColor(0xFF000000);
+            btnNight.setTextColor(primaryColor);
+            if (btnCustom != null) {
+                btnCustom.setBackgroundResource(R.drawable.bg_neu_card_raised);
+                btnCustom.setTextColor(getResources().getColor(R.color.colorPrimary));
+                btnCustom.setText("⏰ Choose Custom Time (Pick Any Time)");
+            }
         });
 
         btnNight.setOnClickListener(v -> {
             selectedTime[0] = "9:00 PM Evening";
+            selectedHour[0] = 21;
+            selectedMin[0] = 0;
             btnNight.setBackgroundResource(R.drawable.bg_m3_button);
-            btnNight.setTextColor(0xFFFFFFFF);
+            btnNight.setTextColor(onPrimaryColor);
             btnMidnight.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnMidnight.setTextColor(0xFF000000);
+            btnMidnight.setTextColor(primaryColor);
             btnMorning.setBackgroundResource(R.drawable.bg_neu_card_raised);
-            btnMorning.setTextColor(0xFF000000);
+            btnMorning.setTextColor(primaryColor);
+            if (btnCustom != null) {
+                btnCustom.setBackgroundResource(R.drawable.bg_neu_card_raised);
+                btnCustom.setTextColor(getResources().getColor(R.color.colorPrimary));
+                btnCustom.setText("⏰ Choose Custom Time (Pick Any Time)");
+            }
         });
 
         if (btnCustom != null) {
             btnCustom.setOnClickListener(v -> {
                 java.util.Calendar now = java.util.Calendar.getInstance();
                 new android.app.TimePickerDialog(getContext(), (view, hourOfDay, minute) -> {
+                    selectedHour[0] = hourOfDay;
+                    selectedMin[0] = minute;
                     String amPm = hourOfDay >= 12 ? "PM" : "AM";
                     int displayHour = hourOfDay % 12;
                     if (displayHour == 0) displayHour = 12;
@@ -208,7 +236,14 @@ public class CalendarFragment extends Fragment {
                     selectedTime[0] = timeStr;
                     btnCustom.setText("⏰ Selected: " + timeStr + " ✓");
                     btnCustom.setBackgroundResource(R.drawable.bg_m3_button);
-                    btnCustom.setTextColor(0xFFFFFFFF);
+                    btnCustom.setTextColor(onPrimaryColor);
+
+                    btnMidnight.setBackgroundResource(R.drawable.bg_neu_card_raised);
+                    btnMidnight.setTextColor(primaryColor);
+                    btnMorning.setBackgroundResource(R.drawable.bg_neu_card_raised);
+                    btnMorning.setTextColor(primaryColor);
+                    btnNight.setBackgroundResource(R.drawable.bg_neu_card_raised);
+                    btnNight.setTextColor(primaryColor);
                 }, now.get(java.util.Calendar.HOUR_OF_DAY), now.get(java.util.Calendar.MINUTE), false).show();
             });
         }
@@ -220,7 +255,7 @@ public class CalendarFragment extends Fragment {
             }
 
             dialog.dismiss();
-            CycleNotificationScheduler.scheduleMidnightAlarm(requireContext());
+            CycleNotificationScheduler.scheduleCustomReminder(requireContext(), title, selectedHour[0], selectedMin[0]);
             Toast.makeText(getContext(), "✓ Reminder '" + title + "' scheduled for " + selectedTime[0] + "!", Toast.LENGTH_LONG).show();
         });
 

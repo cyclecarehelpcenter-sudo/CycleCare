@@ -14,6 +14,9 @@ router.get('/quick-items', chatController.getQuickCareItems);
 // Message thread for a specific connection
 router.get('/messages/:connection_id', chatController.getMessages);
 
+// Delete specific message
+router.delete('/messages/:messageId', chatController.deleteMessage);
+
 // Send text message
 router.post('/send', chatController.sendMessage);
 
@@ -28,5 +31,6 @@ router.get('/users/:userId/social-stats', chatController.getUserSocialStats);
 router.get('/users/:userId/followers', chatController.getFollowers);
 router.get('/users/:userId/following', chatController.getFollowing);
 router.post('/set-tag', chatController.setContactTag);
+router.delete('/connections/:connection_id', chatController.deleteContact);
 
 module.exports = router;

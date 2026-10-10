@@ -1,7 +1,8 @@
 package com.cyclecare.chat;
 
-import android.app.AlertDialog;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -15,6 +16,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -93,19 +95,108 @@ public class CircleConversationsActivity extends AppCompatActivity {
     }
 
     private void setupRecyclerView() {
-        adapter = new CircleConversationsAdapter(this, filteredList, contact -> {
-            Intent intent = new Intent(CircleConversationsActivity.this, CircleChatActivity.class);
-            intent.putExtra(CircleChatActivity.EXTRA_CONNECTION_ID, contact.getConnectionId());
-            intent.putExtra(CircleChatActivity.EXTRA_CONTACT_NAME, contact.getDisplayName());
-            intent.putExtra(CircleChatActivity.EXTRA_RELATIONSHIP, contact.getRelationship());
-            intent.putExtra(CircleChatActivity.EXTRA_PARTNER_USER_ID, contact.getUserId());
-            startActivity(intent);
+        adapter = new CircleConversationsAdapter(this, filteredList, this::openChatWithContact);
+        adapter.setOnContactLongClickListener((contact, position) -> {
+            CharSequence[] options = new CharSequence[]{"🏷️ Change Relationship Tag", "💬 Open Chat", "🗑️ Delete Conversation"};
+            new AlertDialog.Builder(this)
+                    .setTitle(contact.getDisplayName())
+                    .setItems(options, (dialog, which) -> {
+                        if (which == 0) {
+                            showChangeTagDialog(contact, position);
+                        } else if (which == 1) {
+                            openChatWithContact(contact);
+                        } else if (which == 2) {
+                            confirmDeleteConversation(contact, position);
+                        }
+                    })
+                    .show();
         });
 
         LinearLayoutManager lm = new LinearLayoutManager(this);
         rvConversations.setLayoutManager(lm);
         rvConversations.addItemDecoration(new DividerItemDecoration(this, DividerItemDecoration.VERTICAL));
         rvConversations.setAdapter(adapter);
+    }
+
+    private void openChatWithContact(CircleContact contact) {
+        Intent intent = new Intent(CircleConversationsActivity.this, CircleChatActivity.class);
+        intent.putExtra(CircleChatActivity.EXTRA_CONNECTION_ID, contact.getConnectionId());
+        intent.putExtra(CircleChatActivity.EXTRA_CONTACT_NAME, contact.getDisplayName());
+        intent.putExtra(CircleChatActivity.EXTRA_RELATIONSHIP, contact.getRelationship());
+        intent.putExtra(CircleChatActivity.EXTRA_PARTNER_USER_ID, contact.getUserId());
+        startActivity(intent);
+    }
+
+    private void showChangeTagDialog(CircleContact contact, int position) {
+        final String[] tagOptions = new String[]{
+                "Husband ❤️", "Wife 🌸", "Best Friend 💕", "Sister 🌷", "Mother 👵", "Partner 💍", "Doctor 🩺", "Brother 👦", "Friend ✨"
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("🏷️ Set Tag for " + contact.getDisplayName())
+                .setItems(tagOptions, (d, which) -> {
+                    String selected = tagOptions[which];
+                    contact.setRelationship(selected);
+
+                    // 1. Save to SharedPreferences immediately
+                    SharedPreferences prefs = getSharedPreferences("cyclecare_contact_tags", Context.MODE_PRIVATE);
+                    SharedPreferences.Editor editor = prefs.edit();
+                    if (contact.getConnectionId() != null) editor.putString("tag_" + contact.getConnectionId(), selected);
+                    if (contact.getUserId() != null) editor.putString("tag_" + contact.getUserId(), selected);
+                    if (contact.getDisplayName() != null) {
+                        String clean = contact.getDisplayName().replaceAll("(?i)\\s*\\((Husband|Girl|Partner|User|Male|Female)\\)", "").trim();
+                        editor.putString("tag_" + clean.toLowerCase(), selected);
+                    }
+                    editor.apply();
+
+                    // 2. Refresh adapter item
+                    adapter.notifyItemChanged(position);
+
+                    // 3. API update
+                    Map<String, String> body = new HashMap<>();
+                    if (contact.getConnectionId() != null) body.put("connection_id", contact.getConnectionId());
+                    if (contact.getUserId() != null) body.put("target_user_id", contact.getUserId());
+                    if (contact.getDisplayName() != null) body.put("target_name", contact.getDisplayName());
+                    body.put("tag", selected);
+
+                    apiService.setContactTag(body).enqueue(new Callback<Map<String, Object>>() {
+                        @Override
+                        public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                            Toast.makeText(CircleConversationsActivity.this, "✓ Relationship tag set: " + selected, Toast.LENGTH_SHORT).show();
+                        }
+
+                        @Override
+                        public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                            Toast.makeText(CircleConversationsActivity.this, "Tag set locally: " + selected, Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void confirmDeleteConversation(CircleContact contact, int position) {
+        new AlertDialog.Builder(this)
+                .setTitle("🗑️ Delete Conversation")
+                .setMessage("Are you sure you want to remove " + contact.getDisplayName() + " and delete all chat messages?")
+                .setPositiveButton("Delete", (d, w) -> {
+                    if (contact.getConnectionId() != null) {
+                        apiService.deleteCircleConnection(contact.getConnectionId()).enqueue(new Callback<Map<String, Object>>() {
+                            @Override
+                            public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                                Toast.makeText(CircleConversationsActivity.this, "✓ Conversation deleted", Toast.LENGTH_SHORT).show();
+                            }
+                            @Override
+                            public void onFailure(Call<Map<String, Object>> call, Throwable t) {}
+                        });
+                    }
+                    if (position >= 0 && position < filteredList.size()) {
+                        filteredList.remove(position);
+                        adapter.notifyItemRemoved(position);
+                        updateEmptyState();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void setupSearchFilter() {
@@ -154,6 +245,18 @@ public class CircleConversationsActivity extends AppCompatActivity {
                         Type type = new TypeToken<List<CircleContact>>() {}.getType();
                         List<CircleContact> fetched = gson.fromJson(gson.toJson(contactsObj), type);
                         if (fetched != null) {
+                            SharedPreferences prefs = getSharedPreferences("cyclecare_contact_tags", Context.MODE_PRIVATE);
+                            for (CircleContact c : fetched) {
+                                String saved = prefs.getString("tag_" + c.getConnectionId(), null);
+                                if (saved == null && c.getUserId() != null) saved = prefs.getString("tag_" + c.getUserId(), null);
+                                if (saved == null && c.getDisplayName() != null) {
+                                    String clean = c.getDisplayName().replaceAll("(?i)\\s*\\((Husband|Girl|Partner|User|Male|Female)\\)", "").trim();
+                                    saved = prefs.getString("tag_" + clean.toLowerCase(), null);
+                                }
+                                if (saved != null) {
+                                    c.setRelationship(saved);
+                                }
+                            }
                             contactList.clear();
                             contactList.addAll(fetched);
                             filterContacts(etSearch.getText().toString());
@@ -181,98 +284,135 @@ public class CircleConversationsActivity extends AppCompatActivity {
 
     private void showNewChatBottomSheet() {
         BottomSheetDialog dialog = new BottomSheetDialog(this);
-        View sheet = getLayoutInflater().inflate(R.layout.dialog_care_item_sheet, null); // Reuse styled sheet container or build custom
-        
-        // Build a sleek dialog to search and chat
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("💬 Start New Circle Care Chat");
+        View sheet = getLayoutInflater().inflate(R.layout.dialog_add_circle_contact, null);
+        dialog.setContentView(sheet);
 
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        layout.setPadding(40, 20, 40, 20);
+        EditText etQuery = sheet.findViewById(R.id.et_new_chat_query);
+        Button btnFind = sheet.findViewById(R.id.btn_action_find_or_connect);
+        View cardPreview = sheet.findViewById(R.id.card_found_user_preview);
+        TextView tvPreviewLetter = sheet.findViewById(R.id.tv_preview_avatar_letter);
+        TextView tvPreviewName = sheet.findViewById(R.id.tv_preview_user_name);
+        TextView tvPreviewEmail = sheet.findViewById(R.id.tv_preview_user_email);
+        TextView tvPreviewBadge = sheet.findViewById(R.id.tv_preview_tag_badge);
 
-        TextView tvHint = new TextView(this);
-        tvHint.setText("Enter registered user's email or name (e.g. Aman, Admin, etc.):");
-        tvHint.setTextColor(getResources().getColor(R.color.textSecondary));
-        tvHint.setTextSize(13);
-        layout.addView(tvHint);
+        final String[] selectedTag = {"Husband ❤️"};
+        final Map<String, Object>[] foundUser = new Map[]{null};
 
-        EditText etQuery = new EditText(this);
-        etQuery.setHint("email@cyclecare.app or name");
-        etQuery.setTextSize(15);
-        layout.addView(etQuery);
+        // Chip selection logic
+        int[] chipIds = new int[]{
+                R.id.chip_tag_husband, R.id.chip_tag_wife, R.id.chip_tag_friend,
+                R.id.chip_tag_sister, R.id.chip_tag_mom, R.id.chip_tag_partner
+        };
+        String[] chipTags = new String[]{
+                "Husband ❤️", "Wife 🌸", "Best Friend 💕", "Sister 🌷", "Mother 👵", "Partner 💍"
+        };
 
-        TextView tvTagPrompt = new TextView(this);
-        tvTagPrompt.setText("Assign Relationship Tag:");
-        tvTagPrompt.setTextColor(getResources().getColor(R.color.textSecondary));
-        tvTagPrompt.setTextSize(13);
-        tvTagPrompt.setPadding(0, 24, 0, 8);
-        layout.addView(tvTagPrompt);
+        for (int i = 0; i < chipIds.length; i++) {
+            final int idx = i;
+            Button chip = sheet.findViewById(chipIds[idx]);
+            if (chip != null) {
+                chip.setOnClickListener(v -> {
+                    selectedTag[0] = chipTags[idx];
+                    tvPreviewBadge.setText(chipTags[idx]);
+                    for (int j = 0; j < chipIds.length; j++) {
+                        Button other = sheet.findViewById(chipIds[j]);
+                        if (other != null) {
+                            if (j == idx) {
+                                other.setBackgroundResource(R.drawable.bg_m3_button);
+                                other.setTextColor(getResources().getColor(R.color.textOnPrimary));
+                            } else {
+                                other.setBackgroundResource(R.drawable.bg_neu_card_raised);
+                                other.setTextColor(getResources().getColor(R.color.textPrimary));
+                            }
+                        }
+                    }
+                });
+            }
+        }
 
-        EditText etTag = new EditText(this);
-        etTag.setHint("e.g. Husband, Wife, Sister, Best Friend");
-        etTag.setText("Husband ❤️");
-        etTag.setTextSize(14);
-        layout.addView(etTag);
+        btnFind.setOnClickListener(v -> {
+            if (foundUser[0] != null) {
+                // Connect and start chat
+                String targetId = String.valueOf(foundUser[0].get("id"));
+                String targetName = String.valueOf(foundUser[0].get("display_name"));
 
-        builder.setView(layout);
+                // Save to SharedPreferences
+                SharedPreferences prefs = getSharedPreferences("cyclecare_contact_tags", Context.MODE_PRIVATE);
+                prefs.edit()
+                        .putString("tag_" + targetId, selectedTag[0])
+                        .putString("tag_" + targetName.toLowerCase().trim(), selectedTag[0])
+                        .apply();
 
-        builder.setPositiveButton("Search & Chat 🚀", (d, which) -> {
+                Map<String, String> body = new HashMap<>();
+                body.put("target_user_id", targetId);
+                body.put("target_name", targetName);
+                body.put("tag", selectedTag[0]);
+
+                apiService.setContactTag(body).enqueue(new Callback<Map<String, Object>>() {
+                    @Override
+                    public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {}
+                    @Override
+                    public void onFailure(Call<Map<String, Object>> call, Throwable t) {}
+                });
+
+                dialog.dismiss();
+                Intent intent = new Intent(CircleConversationsActivity.this, CircleChatActivity.class);
+                intent.putExtra(CircleChatActivity.EXTRA_CONTACT_NAME, targetName);
+                intent.putExtra(CircleChatActivity.EXTRA_RELATIONSHIP, selectedTag[0]);
+                intent.putExtra(CircleChatActivity.EXTRA_PARTNER_USER_ID, targetId);
+                startActivity(intent);
+                loadContacts(false);
+                return;
+            }
+
             String q = etQuery.getText().toString().trim();
-            String tag = etTag.getText().toString().trim();
-            if (q.isEmpty()) return;
+            if (q.isEmpty()) {
+                Toast.makeText(this, "Please enter a name or email", Toast.LENGTH_SHORT).show();
+                return;
+            }
 
-            Toast.makeText(this, "Searching for " + q + "...", Toast.LENGTH_SHORT).show();
+            btnFind.setText("Searching... ⏳");
+            btnFind.setEnabled(false);
+
             apiService.searchUsers(q).enqueue(new Callback<Map<String, Object>>() {
                 @Override
                 public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                    btnFind.setEnabled(true);
                     if (response.isSuccessful() && response.body() != null) {
                         List<?> users = (List<?>) response.body().get("users");
                         if (users != null && !users.isEmpty()) {
-                            Map<?, ?> u = (Map<?, ?>) users.get(0);
-                            String targetId = String.valueOf(u.get("id"));
-                            String targetName = String.valueOf(u.get("display_name"));
+                            Map<String, Object> u = (Map<String, Object>) users.get(0);
+                            foundUser[0] = u;
+                            String name = String.valueOf(u.get("display_name"));
+                            String email = String.valueOf(u.get("email"));
 
-                            // Update Tag
-                            Map<String, String> tagBody = new HashMap<>();
-                            tagBody.put("target_user_id", targetId);
-                            tagBody.put("tag", tag);
-                            apiService.setContactTag(tagBody).enqueue(new Callback<Map<String, Object>>() {
-                                @Override
-                                public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
-                                    // Open Chat
-                                    Intent intent = new Intent(CircleConversationsActivity.this, CircleChatActivity.class);
-                                    intent.putExtra(CircleChatActivity.EXTRA_CONTACT_NAME, targetName);
-                                    intent.putExtra(CircleChatActivity.EXTRA_RELATIONSHIP, tag);
-                                    intent.putExtra(CircleChatActivity.EXTRA_PARTNER_USER_ID, targetId);
-                                    startActivity(intent);
-                                    loadContacts(false);
-                                }
+                            cardPreview.setVisibility(View.VISIBLE);
+                            tvPreviewName.setText(name);
+                            tvPreviewEmail.setText(email);
+                            tvPreviewLetter.setText(name.isEmpty() ? "U" : name.substring(0, 1).toUpperCase());
+                            tvPreviewBadge.setText(selectedTag[0]);
 
-                                @Override
-                                public void onFailure(Call<Map<String, Object>> call, Throwable t) {
-                                    Intent intent = new Intent(CircleConversationsActivity.this, CircleChatActivity.class);
-                                    intent.putExtra(CircleChatActivity.EXTRA_CONTACT_NAME, targetName);
-                                    intent.putExtra(CircleChatActivity.EXTRA_RELATIONSHIP, tag);
-                                    intent.putExtra(CircleChatActivity.EXTRA_PARTNER_USER_ID, targetId);
-                                    startActivity(intent);
-                                }
-                            });
+                            btnFind.setText("Start Chat with " + name + " 🚀");
                         } else {
+                            btnFind.setText("Search & Connect 🚀");
                             Toast.makeText(CircleConversationsActivity.this, "No user found with \"" + q + "\"", Toast.LENGTH_LONG).show();
                         }
+                    } else {
+                        btnFind.setText("Search & Connect 🚀");
+                        Toast.makeText(CircleConversationsActivity.this, "Search failed", Toast.LENGTH_SHORT).show();
                     }
                 }
 
                 @Override
                 public void onFailure(Call<Map<String, Object>> call, Throwable t) {
-                    Toast.makeText(CircleConversationsActivity.this, "Search error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                    btnFind.setEnabled(true);
+                    btnFind.setText("Search & Connect 🚀");
+                    Toast.makeText(CircleConversationsActivity.this, "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
                 }
             });
         });
 
-        builder.setNegativeButton("Cancel", null);
-        builder.show();
+        dialog.show();
     }
 
     private void startAutoRefresh() {
@@ -289,6 +429,9 @@ public class CircleConversationsActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (adapter != null) {
+            adapter.notifyDataSetChanged();
+        }
         loadContacts(false);
     }
 

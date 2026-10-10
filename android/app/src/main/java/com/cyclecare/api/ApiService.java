@@ -45,6 +45,9 @@ public interface ApiService {
     @POST("cycle/period")
     Call<ApiResponse<PeriodLog>> addPeriodLog(@Body PeriodLog periodLog);
 
+    @PUT("cycle/period/{id}")
+    Call<Map<String, Object>> updatePeriodLog(@Path("id") String id, @Body Map<String, String> body);
+
     @DELETE("cycle/period/{id}")
     Call<ApiResponse<Void>> deletePeriodLog(@Path("id") String id);
 
@@ -243,4 +246,10 @@ public interface ApiService {
 
     @POST("chat/set-tag")
     Call<Map<String, Object>> setContactTag(@Body Map<String, String> body);
+
+    @DELETE("chat/messages/{messageId}")
+    Call<Map<String, Object>> deleteChatMessage(@Path("messageId") String messageId);
+
+    @DELETE("chat/connections/{connection_id}")
+    Call<Map<String, Object>> deleteCircleConnection(@Path("connection_id") String connectionId);
 }

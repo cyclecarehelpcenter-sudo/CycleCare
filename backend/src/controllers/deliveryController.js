@@ -65,7 +65,7 @@ const completeDelivery = async (req, res, next) => {
     const { delivery_otp } = req.body;
     const { data: delivery } = await supabase.from('deliveries').select('delivery_otp, order_id').eq('id', req.params.id).single();
     
-    if (delivery.delivery_otp !== delivery_otp) {
+    if (!delivery || delivery.delivery_otp !== delivery_otp) {
       return res.status(400).json({ success: false, message: 'Invalid OTP' });
     }
 
@@ -75,11 +75,14 @@ const completeDelivery = async (req, res, next) => {
       updated_at: new Date()
     }).eq('id', req.params.id);
 
-    await supabase.from('delivery_events').insert([{
-      delivery_id: req.params.id,
-      status: 'DELIVERED',
-      actor_id: req.user.id
-    }]);
+    try {
+      const actorId = (req.user && req.user.id !== '00000000-0000-0000-0000-000000000000') ? req.user.id : null;
+      await supabase.from('delivery_events').insert([{
+        delivery_id: req.params.id,
+        status: 'DELIVERED',
+        actor_id: actorId
+      }]);
+    } catch (_) {}
 
     await supabase.from('orders').update({ delivery_status: 'DELIVERED', status: 'COMPLETED' }).eq('id', delivery.order_id);
 

@@ -26,10 +26,15 @@ import java.io.OutputStream;
 public class SettingsActivity extends AppCompatActivity {
 
     private Button btnLangEn, btnLangHi, btnLangHinglish;
-    private SwitchCompat swMidnightNotifications, swDiscreetNotifications;
+    private SwitchCompat swMidnightNotifications, swDiscreetNotifications, swDarkMode;
     private Button btnTestMidnightNotification;
     private Button btnShareApk, btnExportData, btnDeleteAccount;
     private SharedPreferences prefs;
+
+    @Override
+    protected void attachBaseContext(Context newBase) {
+        super.attachBaseContext(LocaleHelper.applyLocale(newBase));
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +45,7 @@ public class SettingsActivity extends AppCompatActivity {
 
         initViews();
         setupLanguageButtons();
+        setupDarkModeSwitch();
         setupNotificationSwitches();
     }
 
@@ -48,6 +54,7 @@ public class SettingsActivity extends AppCompatActivity {
         btnLangHi = findViewById(R.id.btn_lang_hi);
         btnLangHinglish = findViewById(R.id.btn_lang_hinglish);
 
+        swDarkMode = findViewById(R.id.sw_dark_mode);
         swMidnightNotifications = findViewById(R.id.sw_midnight_notifications);
         swDiscreetNotifications = findViewById(R.id.sw_discreet_notifications);
         btnTestMidnightNotification = findViewById(R.id.btn_test_midnight_notification);
@@ -61,26 +68,38 @@ public class SettingsActivity extends AppCompatActivity {
         btnDeleteAccount.setOnClickListener(v -> Toast.makeText(this, "Account deletion requested.", Toast.LENGTH_LONG).show());
     }
 
+    private void setupDarkModeSwitch() {
+        if (swDarkMode == null) return;
+        boolean isDark = prefs.getBoolean("dark_mode_enabled", false);
+        swDarkMode.setChecked(isDark);
+        swDarkMode.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            prefs.edit().putBoolean("dark_mode_enabled", isChecked).apply();
+            androidx.appcompat.app.AppCompatDelegate.setDefaultNightMode(
+                    isChecked ? androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_YES : androidx.appcompat.app.AppCompatDelegate.MODE_NIGHT_NO
+            );
+        });
+    }
+
     private void setupLanguageButtons() {
         String currentLang = LocaleHelper.getLanguage(this);
         updateLanguageButtonStyles(currentLang);
 
         btnLangEn.setOnClickListener(v -> {
             LocaleHelper.setLanguage(this, "en");
-            updateLanguageButtonStyles("en");
             Toast.makeText(this, "Language set to English", Toast.LENGTH_SHORT).show();
+            recreate();
         });
 
         btnLangHi.setOnClickListener(v -> {
             LocaleHelper.setLanguage(this, "hi");
-            updateLanguageButtonStyles("hi");
             Toast.makeText(this, "भाषा हिंदी में सेट हो गई है", Toast.LENGTH_SHORT).show();
+            recreate();
         });
 
         btnLangHinglish.setOnClickListener(v -> {
             LocaleHelper.setLanguage(this, "hinglish");
-            updateLanguageButtonStyles("hinglish");
             Toast.makeText(this, "Language Hinglish me set ho gayi hai!", Toast.LENGTH_SHORT).show();
+            recreate();
         });
     }
 

@@ -14,6 +14,13 @@ public class MidnightCycleReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
+        if (intent != null && intent.hasExtra("reminder_title")) {
+            String title = intent.getStringExtra("reminder_title");
+            DiscreetNotificationManager manager = new DiscreetNotificationManager(context);
+            manager.showReminderNotification("⏰ " + title, "Time for your scheduled reminder: " + title);
+            return;
+        }
+
         // Reschedule for next midnight
         CycleNotificationScheduler.scheduleMidnightAlarm(context);
 

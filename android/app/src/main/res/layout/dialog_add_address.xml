@@ -5,13 +5,13 @@
     android:layout_height="wrap_content"
     android:orientation="vertical"
     android:padding="20dp"
-    android:background="#FFFFFF">
+    android:background="@color/colorSurface">
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Add Delivery Address"
-        android:textColor="#1A202C"
+        android:textColor="@color/textPrimary"
         android:textSize="18sp"
         android:textStyle="bold" />
 
@@ -20,30 +20,54 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="2dp"
         android:text="Your address is kept 100% confidential &amp; encrypted."
-        android:textColor="#718096"
+        android:textColor="@color/textSecondary"
         android:textSize="12sp" />
 
-    <!-- Auto-Detect Exact Location GPS Button -->
-    <Button
-        android:id="@+id/btn_auto_detect_location"
-        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+    <!-- Location Action Buttons Row -->
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="44dp"
+        android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="📍 Auto-Detect Current GPS Location"
-        android:textColor="#2563EB"
-        android:textSize="12sp"
-        android:textStyle="bold"
-        app:cornerRadius="10dp"
-        app:strokeColor="#93C5FD" />
+        android:orientation="horizontal">
+
+        <Button
+            android:id="@+id/btn_auto_detect_location"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="6dp"
+            android:text="📍 Auto-Detect GPS"
+            android:textColor="@color/colorPrimary"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            app:cornerRadius="10dp"
+            app:strokeColor="@color/colorPrimary" />
+
+        <Button
+            android:id="@+id/btn_open_map_location"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:layout_marginStart="6dp"
+            android:text="🗺️ Open Map"
+            android:textColor="@color/colorSecondary"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            app:cornerRadius="10dp"
+            app:strokeColor="@color/colorSecondary" />
+    </LinearLayout>
 
     <EditText
         android:id="@+id/et_addr_name"
         android:layout_width="match_parent"
         android:layout_height="48dp"
-        android:layout_marginTop="16dp"
+        android:layout_marginTop="14dp"
         android:background="@drawable/neu_input"
         android:hint="Full Name / Recipient"
+        android:textColor="@color/textPrimary"
+        android:textColorHint="@color/textHint"
         android:paddingHorizontal="14dp"
         android:textSize="13sp" />
 
@@ -54,6 +78,8 @@
         android:layout_marginTop="10dp"
         android:background="@drawable/neu_input"
         android:hint="Mobile Number (10 digits)"
+        android:textColor="@color/textPrimary"
+        android:textColorHint="@color/textHint"
         android:inputType="phone"
         android:paddingHorizontal="14dp"
         android:textSize="13sp" />
@@ -65,6 +91,8 @@
         android:layout_marginTop="10dp"
         android:background="@drawable/neu_input"
         android:hint="Flat / House No. / Building / Street"
+        android:textColor="@color/textPrimary"
+        android:textColorHint="@color/textHint"
         android:paddingHorizontal="14dp"
         android:textSize="13sp" />
 
@@ -75,6 +103,8 @@
         android:layout_marginTop="10dp"
         android:background="@drawable/neu_input"
         android:hint="Landmark (Optional)"
+        android:textColor="@color/textPrimary"
+        android:textColorHint="@color/textHint"
         android:paddingHorizontal="14dp"
         android:textSize="13sp" />
 
@@ -92,6 +122,8 @@
             android:layout_marginEnd="6dp"
             android:background="@drawable/neu_input"
             android:hint="City"
+            android:textColor="@color/textPrimary"
+            android:textColorHint="@color/textHint"
             android:paddingHorizontal="14dp"
             android:textSize="13sp" />
 
@@ -103,6 +135,8 @@
             android:layout_marginStart="6dp"
             android:background="@drawable/neu_input"
             android:hint="Pincode"
+            android:textColor="@color/textPrimary"
+            android:textColorHint="@color/textHint"
             android:inputType="number"
             android:paddingHorizontal="14dp"
             android:textSize="13sp" />
@@ -115,6 +149,8 @@
         android:layout_marginTop="10dp"
         android:background="@drawable/neu_input"
         android:hint="State"
+        android:textColor="@color/textPrimary"
+        android:textColorHint="@color/textHint"
         android:paddingHorizontal="14dp"
         android:textSize="13sp" />
 
@@ -131,6 +167,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Home"
+            android:textColor="@color/textPrimary"
             android:checked="true"
             android:textSize="13sp" />
 
@@ -140,6 +177,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:text="Work"
+            android:textColor="@color/textPrimary"
             android:textSize="13sp" />
 
         <RadioButton
@@ -148,6 +186,7 @@
             android:layout_height="wrap_content"
             android:layout_marginStart="16dp"
             android:text="Other"
+            android:textColor="@color/textPrimary"
             android:textSize="13sp" />
     </RadioGroup>
 
@@ -157,7 +196,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:text="Make this my default delivery address"
-        android:textColor="#4A5568"
+        android:textColor="@color/textSecondary"
         android:textSize="12sp" />
 
     <Button

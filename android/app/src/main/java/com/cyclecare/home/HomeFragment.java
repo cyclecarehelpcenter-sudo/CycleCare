@@ -40,6 +40,9 @@ public class HomeFragment extends Fragment {
 
     private Button btnQuickLog, btnPrepareNow, btnViewCareKit, btnEmergencyMode, btnAskAi;
     private TextView tvGreeting, tvDialDaysCount, tvDialStatusSub, tvDialPhaseTag, tvCycleDay;
+    private TextView tvTempValue, tvChartSubtitle, tvBreakdownSubtitle;
+    private TextView tvBreakdownPeriod, tvBreakdownFollicular, tvBreakdownOvulation, tvBreakdownLuteal;
+    private TextView[] tvDaysOfWeek;
     private LinearLayout llDialCore;
     private FrameLayout btnToggleActive, btnToggleSymptoms, btnToggleOvulation, btnToggleInsights;
     private ObjectAnimator pulseAnimator;
@@ -55,6 +58,25 @@ public class HomeFragment extends Fragment {
         tvDialPhaseTag = view.findViewById(R.id.tv_dial_phase_tag);
         tvCycleDay = view.findViewById(R.id.tv_cycle_day);
         llDialCore = view.findViewById(R.id.ll_dial_core);
+
+        tvTempValue = view.findViewById(R.id.tv_temp_value);
+        tvChartSubtitle = view.findViewById(R.id.tv_chart_subtitle);
+        tvBreakdownSubtitle = view.findViewById(R.id.tv_breakdown_subtitle);
+        tvBreakdownPeriod = view.findViewById(R.id.tv_breakdown_period);
+        tvBreakdownFollicular = view.findViewById(R.id.tv_breakdown_follicular);
+        tvBreakdownOvulation = view.findViewById(R.id.tv_breakdown_ovulation);
+        tvBreakdownLuteal = view.findViewById(R.id.tv_breakdown_luteal);
+
+        tvDaysOfWeek = new TextView[]{
+                view.findViewById(R.id.tv_day_sun),
+                view.findViewById(R.id.tv_day_mon),
+                view.findViewById(R.id.tv_day_tue),
+                view.findViewById(R.id.tv_day_wed),
+                view.findViewById(R.id.tv_day_thu),
+                view.findViewById(R.id.tv_day_fri),
+                view.findViewById(R.id.tv_day_sat)
+        };
+        updateDayOfWeekHighlight();
 
         btnToggleActive = view.findViewById(R.id.btn_toggle_active);
         btnToggleSymptoms = view.findViewById(R.id.btn_toggle_symptoms);
@@ -227,6 +249,34 @@ public class HomeFragment extends Fragment {
         return view;
     }
 
+    @Override
+    public void onResume() {
+        super.onResume();
+        if (getActivity() != null) {
+            SharedPreferences prefs = getActivity().getSharedPreferences("cyclecare_prefs", Context.MODE_PRIVATE);
+            String userName = prefs.getString("user_name", "User");
+            if (tvGreeting != null) tvGreeting.setText("Welcome, " + userName);
+        }
+        syncRemotePeriodLogs();
+    }
+
+    private void updateDayOfWeekHighlight() {
+        if (tvDaysOfWeek == null || !isAdded()) return;
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        int dayOfWeek = cal.get(java.util.Calendar.DAY_OF_WEEK); // 1 = Sun, 2 = Mon, ... 7 = Sat
+        for (int i = 0; i < 7; i++) {
+            if (tvDaysOfWeek[i] != null) {
+                if ((i + 1) == dayOfWeek) {
+                    tvDaysOfWeek[i].setTextColor(getResources().getColor(R.color.colorPrimary));
+                    tvDaysOfWeek[i].setTypeface(null, android.graphics.Typeface.BOLD);
+                } else {
+                    tvDaysOfWeek[i].setTextColor(getResources().getColor(R.color.textHint));
+                    tvDaysOfWeek[i].setTypeface(null, android.graphics.Typeface.NORMAL);
+                }
+            }
+        }
+    }
+
     /**
      * Calculates real cycle progress and days remaining from the local database.
      */
@@ -237,10 +287,8 @@ public class HomeFragment extends Fragment {
                 .periodLogDao()
                 .getAllPeriodLogs()
                 .observe(getViewLifecycleOwner(), logs -> {
+                    updateDayOfWeekHighlight();
                     int cycleLength = 28;
-                    int cycleDay = 24;
-                    int daysRemaining = 4;
-                    String phase = "Luteal Phase";
 
                     if (logs != null && !logs.isEmpty()) {
                         PeriodLogEntity latestLog = logs.get(0);
@@ -250,30 +298,100 @@ public class HomeFragment extends Fragment {
                             if (startDate != null) {
                                 long diffMs = Math.abs(System.currentTimeMillis() - startDate.getTime());
                                 long diffDays = TimeUnit.MILLISECONDS.toDays(diffMs);
-                                cycleDay = (int) (diffDays % cycleLength) + 1;
-                                daysRemaining = cycleLength - cycleDay;
+                                int cycleDay = (int) (diffDays % cycleLength) + 1;
+                                int daysRemaining = cycleLength - cycleDay;
                                 if (daysRemaining <= 0) daysRemaining = 1;
 
+                                String phase;
                                 if (cycleDay <= 5) {
                                     phase = "Menstrual Phase";
+                                    if (tvChartSubtitle != null) tvChartSubtitle.setText("Estrogen & Progesterone low • Day " + cycleDay + " flow rhythm");
+                                    if (tvTempValue != null) tvTempValue.setText("36.4°C • Baseline Normal");
+                                    if (tvBreakdownPeriod != null) tvBreakdownPeriod.setText("Period: 5 days (18%) • CURRENT ACTIVE");
+                                    if (tvBreakdownFollicular != null) tvBreakdownFollicular.setText("Follicular: 6 days (22%)");
+                                    if (tvBreakdownOvulation != null) tvBreakdownOvulation.setText("Ovulation: 5 days (18%)");
+                                    if (tvBreakdownLuteal != null) tvBreakdownLuteal.setText("Luteal: 12 days (42%)");
                                 } else if (cycleDay <= 11) {
                                     phase = "Follicular Phase";
+                                    if (tvChartSubtitle != null) tvChartSubtitle.setText("Estrogen rising • Energy & follicle developing");
+                                    if (tvTempValue != null) tvTempValue.setText("36.3°C • Pre-Ovulatory Normal");
+                                    if (tvBreakdownPeriod != null) tvBreakdownPeriod.setText("Period: 5 days (18%)");
+                                    if (tvBreakdownFollicular != null) tvBreakdownFollicular.setText("Follicular: 6 days (22%) • CURRENT ACTIVE");
+                                    if (tvBreakdownOvulation != null) tvBreakdownOvulation.setText("Ovulation: 5 days (18%)");
+                                    if (tvBreakdownLuteal != null) tvBreakdownLuteal.setText("Luteal: 12 days (42%)");
                                 } else if (cycleDay <= 16) {
                                     phase = "Ovulation Window";
+                                    if (tvChartSubtitle != null) tvChartSubtitle.setText("LH surge peak • High fertility & energy rhythm");
+                                    if (tvTempValue != null) tvTempValue.setText("36.6°C • Slight Temp Dip & Rise");
+                                    if (tvBreakdownPeriod != null) tvBreakdownPeriod.setText("Period: 5 days (18%)");
+                                    if (tvBreakdownFollicular != null) tvBreakdownFollicular.setText("Follicular: 6 days (22%)");
+                                    if (tvBreakdownOvulation != null) tvBreakdownOvulation.setText("Ovulation: 5 days (18%) • CURRENT ACTIVE");
+                                    if (tvBreakdownLuteal != null) tvBreakdownLuteal.setText("Luteal: 12 days (42%)");
                                 } else {
                                     phase = "Luteal Phase";
+                                    if (tvChartSubtitle != null) tvChartSubtitle.setText("Progesterone elevated • Body temperature peaking");
+                                    if (tvTempValue != null) tvTempValue.setText("36.9°C • Luteal Elevated Normal");
+                                    if (tvBreakdownPeriod != null) tvBreakdownPeriod.setText("Period: 5 days (18%)");
+                                    if (tvBreakdownFollicular != null) tvBreakdownFollicular.setText("Follicular: 6 days (22%)");
+                                    if (tvBreakdownOvulation != null) tvBreakdownOvulation.setText("Ovulation: 5 days (18%)");
+                                    if (tvBreakdownLuteal != null) tvBreakdownLuteal.setText("Luteal: 12 days (42%) • CURRENT ACTIVE");
                                 }
+
+                                int percent = (int) (((float) cycleDay / cycleLength) * 100);
+                                tvDialDaysCount.setText(String.valueOf(daysRemaining));
+                                tvDialStatusSub.setText("days left");
+                                tvDialPhaseTag.setText(phase);
+                                tvCycleDay.setText("Day " + cycleDay + " of " + cycleLength + " (" + percent + "%)");
+                                return;
                             }
                         } catch (Exception ignored) {
                         }
                     }
 
-                    int percent = (int) (((float) cycleDay / cycleLength) * 100);
-                    tvDialDaysCount.setText(String.valueOf(daysRemaining));
-                    tvDialStatusSub.setText("days left");
-                    tvDialPhaseTag.setText(phase);
-                    tvCycleDay.setText("Day " + cycleDay + " of " + cycleLength + " (" + percent + "%)");
+                    // Empty State: No logs recorded yet
+                    tvDialDaysCount.setText("+");
+                    tvDialStatusSub.setText("Log Period");
+                    tvDialPhaseTag.setText("No Logs Recorded");
+                    tvCycleDay.setText("Tap dial to log your cycle start date");
+                    if (tvChartSubtitle != null) tvChartSubtitle.setText("Log your period to view active hormone curve");
+                    if (tvTempValue != null) tvTempValue.setText("-- • Awaiting Period Log");
+                    if (tvBreakdownPeriod != null) tvBreakdownPeriod.setText("Period: 5 days (18%)");
+                    if (tvBreakdownFollicular != null) tvBreakdownFollicular.setText("Follicular: 6 days (22%)");
+                    if (tvBreakdownOvulation != null) tvBreakdownOvulation.setText("Ovulation: 5 days (18%)");
+                    if (tvBreakdownLuteal != null) tvBreakdownLuteal.setText("Luteal: 12 days (42%)");
                 });
+    }
+
+    private void syncRemotePeriodLogs() {
+        if (getContext() == null) return;
+        com.cyclecare.api.ApiClient.getApiService(getContext()).getCycleData().enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
+            @Override
+            public void onResponse(retrofit2.Call<java.util.Map<String, Object>> call, retrofit2.Response<java.util.Map<String, Object>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Object pLogs = response.body().get("periodLogs");
+                    if (pLogs instanceof java.util.List && !((java.util.List<?>) pLogs).isEmpty()) {
+                        java.util.concurrent.Executors.newSingleThreadExecutor().execute(() -> {
+                            try {
+                                com.google.gson.Gson gson = new com.google.gson.Gson();
+                                String json = gson.toJson(pLogs);
+                                java.lang.reflect.Type listType = new com.google.gson.reflect.TypeToken<java.util.List<com.cyclecare.models.PeriodLog>>() {}.getType();
+                                java.util.List<com.cyclecare.models.PeriodLog> list = gson.fromJson(json, listType);
+                                if (list != null && getContext() != null) {
+                                    for (com.cyclecare.models.PeriodLog pl : list) {
+                                        String id = pl.getId() != null ? pl.getId() : java.util.UUID.randomUUID().toString();
+                                        PeriodLogEntity entity = new PeriodLogEntity(id, pl.getStartDate(), pl.getEndDate(), pl.getFlow(), pl.getNotes(), true);
+                                        AppDatabase.getInstance(requireContext()).periodLogDao().insertPeriodLog(entity);
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+                        });
+                    }
+                }
+            }
+
+            @Override
+            public void onFailure(retrofit2.Call<java.util.Map<String, Object>> call, Throwable t) {}
+        });
     }
 
     private void startDialPulseAnimation() {

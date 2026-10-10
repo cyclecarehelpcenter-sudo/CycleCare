@@ -218,8 +218,17 @@ public class ProfileFragment extends Fragment {
                             String selected = tagOptions[which];
                             userTag[0] = selected;
 
+                            if (getContext() != null) {
+                                android.content.SharedPreferences prefs = getContext().getSharedPreferences("cyclecare_contact_tags", android.content.Context.MODE_PRIVATE);
+                                prefs.edit()
+                                        .putString("tag_" + foundUserId[0], selected)
+                                        .putString("tag_" + foundUserName[0].toLowerCase().trim(), selected)
+                                        .apply();
+                            }
+
                             java.util.Map<String, String> body = new java.util.HashMap<>();
                             body.put("target_user_id", foundUserId[0]);
+                            body.put("target_name", foundUserName[0]);
                             body.put("tag", selected);
 
                             com.cyclecare.api.ApiClient.getApiService(getContext()).setContactTag(body).enqueue(new retrofit2.Callback<java.util.Map<String, Object>>() {
@@ -348,7 +357,7 @@ public class ProfileFragment extends Fragment {
         View cardCircleChat = view.findViewById(R.id.card_circle_chat);
         if (cardCircleChat != null) {
             cardCircleChat.setOnClickListener(v -> {
-                Intent intent = new Intent(getActivity(), com.cyclecare.chat.CircleChatActivity.class);
+                Intent intent = new Intent(getActivity(), com.cyclecare.chat.CircleConversationsActivity.class);
                 startActivity(intent);
             });
         }
@@ -370,6 +379,13 @@ public class ProfileFragment extends Fragment {
         }
 
         btnShareApk.setOnClickListener(v -> shareApkFile());
+
+        View btnSettingsTop = view.findViewById(R.id.btn_profile_settings_top);
+        if (btnSettingsTop != null) {
+            btnSettingsTop.setOnClickListener(v -> {
+                startActivity(new Intent(getActivity(), SettingsActivity.class));
+            });
+        }
 
         btnAppSettings.setOnClickListener(v -> {
             Intent intent = new Intent(getActivity(), SettingsActivity.class);

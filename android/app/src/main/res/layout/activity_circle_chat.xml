@@ -11,7 +11,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:cardElevation="3dp"
-        app:cardBackgroundColor="@android:color/white">
+        app:cardBackgroundColor="@color/colorSurface">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -26,6 +26,7 @@
                 android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_arrow_back"
+                app:tint="@color/textPrimary"
                 android:contentDescription="Back" />
 
             <!-- Contact Avatar -->
@@ -69,7 +70,7 @@
                         android:ellipsize="end"
                         android:maxLines="1"
                         android:text="Aman"
-                        android:textColor="#000000"
+                        android:textColor="@color/textPrimary"
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
@@ -97,6 +98,16 @@
                     android:textSize="11sp" />
             </LinearLayout>
 
+            <!-- Set Relationship Tag Button -->
+            <ImageButton
+                android:id="@+id/btn_chat_tag"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_tag"
+                app:tint="@color/colorPrimary"
+                android:contentDescription="Set Tag" />
+
             <!-- Quick Care Store Shortcut -->
             <ImageButton
                 android:id="@+id/btn_chat_store"
@@ -106,7 +117,6 @@
                 android:src="@drawable/ic_cart"
                 app:tint="@color/colorPrimary"
                 android:contentDescription="Care Store" />
-
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
@@ -124,7 +134,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:cardElevation="8dp"
-        app:cardBackgroundColor="@android:color/white">
+        app:cardBackgroundColor="@color/colorSurface">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -156,8 +166,8 @@
                 android:minHeight="42dp"
                 android:paddingHorizontal="14dp"
                 android:paddingVertical="10dp"
-                android:textColor="#000000"
-                android:textColorHint="#94A3B8"
+                android:textColor="@color/textPrimary"
+                android:textColorHint="@color/textHint"
                 android:textSize="14sp" />
 
             <!-- Send Button -->

@@ -33,10 +33,12 @@ public class RegisterActivity extends AppCompatActivity {
     private EditText etName, etEmail, etPassword;
     private Button btnRegister;
     private Button btnModeTrack, btnModePartner, btnModeBoth;
+    private Button btnGenderFemale, btnGenderMale;
     private TextView tvGoLogin, tvPandaHint;
     private ImageView ivPanda;
     private FrameLayout flPandaFrame;
     private String selectedUsageMode = "TRACK_CYCLE";
+    private String selectedGender = "FEMALE";
 
     private Handler blinkHandler = new Handler(Looper.getMainLooper());
     private Runnable blinkRunnable;
@@ -54,11 +56,14 @@ public class RegisterActivity extends AppCompatActivity {
         btnModeTrack = findViewById(R.id.btn_mode_track);
         btnModePartner = findViewById(R.id.btn_mode_partner);
         btnModeBoth = findViewById(R.id.btn_mode_both);
+        btnGenderFemale = findViewById(R.id.btn_gender_female);
+        btnGenderMale = findViewById(R.id.btn_gender_male);
         tvGoLogin = findViewById(R.id.tv_go_login);
         tvPandaHint = findViewById(R.id.tv_panda_hint);
         ivPanda = findViewById(R.id.iv_panda);
         flPandaFrame = findViewById(R.id.fl_panda_frame);
 
+        setupGenderSelectors();
         setupUsageModeSelectors();
 
         // Pre-fill demo details for rapid testing
@@ -161,6 +166,38 @@ public class RegisterActivity extends AppCompatActivity {
         blinkHandler.postDelayed(blinkRunnable, 2000);
     }
 
+    private void setupGenderSelectors() {
+        if (btnGenderFemale == null || btnGenderMale == null) return;
+
+        btnGenderFemale.setOnClickListener(v -> {
+            selectedGender = "FEMALE";
+            btnGenderFemale.setBackgroundResource(R.drawable.bg_m3_button);
+            btnGenderFemale.setTextColor(getResources().getColor(R.color.textOnPrimary));
+
+            btnGenderMale.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnGenderMale.setTextColor(0xFF000000);
+
+            if (btnModeTrack != null) {
+                btnModeTrack.performClick();
+            }
+            tvPandaHint.setText("🌸 Welcome! Track your menstrual cycle, symptoms, and wellness.");
+        });
+
+        btnGenderMale.setOnClickListener(v -> {
+            selectedGender = "MALE";
+            btnGenderMale.setBackgroundResource(R.drawable.bg_m3_button);
+            btnGenderMale.setTextColor(getResources().getColor(R.color.textOnPrimary));
+
+            btnGenderFemale.setBackgroundResource(R.drawable.bg_neu_card_raised);
+            btnGenderFemale.setTextColor(0xFF000000);
+
+            if (btnModePartner != null) {
+                btnModePartner.performClick();
+            }
+            tvPandaHint.setText("👨 Partner Mode! Support your partner and stay informed with care packages.");
+        });
+    }
+
     private void setupUsageModeSelectors() {
         if (btnModeTrack == null || btnModePartner == null || btnModeBoth == null) return;
 
@@ -234,6 +271,7 @@ public class RegisterActivity extends AppCompatActivity {
         body.put("email", email);
         body.put("password", password);
         body.put("usage_mode", selectedUsageMode);
+        body.put("gender", selectedGender);
 
         ApiService api = ApiClient.getApiService(this);
         api.register(body).enqueue(new Callback<ApiResponse<Void>>() {
@@ -269,6 +307,7 @@ public class RegisterActivity extends AppCompatActivity {
                 .putString("jwt_token", token)
                 .putString("user_name", userName)
                 .putString("usage_mode", selectedUsageMode)
+                .putString("gender", selectedGender)
                 .apply();
 
         Intent intent = new Intent(RegisterActivity.this, MainActivity.class);

@@ -18,7 +18,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Cycle Calendar"
-            android:textColor="#000000"
+            android:textColor="@color/textPrimary"
             android:textSize="24sp"
             android:textStyle="bold" />
 
@@ -49,7 +49,7 @@
                 <View android:layout_width="10dp" android:layout_height="10dp" android:background="@drawable/bg_badge_period" />
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:layout_marginStart="6dp" android:text="Period"
-                    android:textColor="#000000" android:textSize="12sp" android:textStyle="bold" />
+                    android:textColor="@color/textPrimary" android:textSize="12sp" android:textStyle="bold" />
             </LinearLayout>
 
             <LinearLayout
@@ -61,7 +61,7 @@
                 <View android:layout_width="10dp" android:layout_height="10dp" android:background="@color/colorMintGreen" />
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:layout_marginStart="6dp" android:text="Ovulation"
-                    android:textColor="#000000" android:textSize="12sp" android:textStyle="bold" />
+                    android:textColor="@color/textPrimary" android:textSize="12sp" android:textStyle="bold" />
             </LinearLayout>
 
             <LinearLayout
@@ -73,7 +73,7 @@
                 <View android:layout_width="10dp" android:layout_height="10dp" android:background="@drawable/bg_badge_today" />
                 <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                     android:layout_marginStart="6dp" android:text="Today"
-                    android:textColor="#000000" android:textSize="12sp" android:textStyle="bold" />
+                    android:textColor="@color/textPrimary" android:textSize="12sp" android:textStyle="bold" />
             </LinearLayout>
         </LinearLayout>
 
@@ -91,8 +91,8 @@
                 android:layout_height="wrap_content"
                 android:dateTextAppearance="@style/CalendarDateAppearance"
                 android:weekDayTextAppearance="@style/CalendarWeekDayAppearance"
-                android:focusedMonthDateColor="#000000"
-                android:unfocusedMonthDateColor="#475569"
+                android:focusedMonthDateColor="@color/textPrimary"
+                android:unfocusedMonthDateColor="@color/textHint"
                 android:weekNumberColor="@color/colorPrimary" />
         </LinearLayout>
 
@@ -118,7 +118,7 @@
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="Selected Date: Today"
-                    android:textColor="#000000"
+                    android:textColor="@color/textPrimary"
                     android:textSize="15sp"
                     android:textStyle="bold" />
 
@@ -141,7 +141,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
                 android:text="Cycle Day 14 • Peak Ovulation Window"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="13sp"
                 android:textStyle="bold" />
 
@@ -155,7 +155,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="LOGGED SYMPTOMS"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.05" />
@@ -208,7 +208,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="🔔 Cycle &amp; Care Reminders"
-                        android:textColor="#000000"
+                        android:textColor="@color/textPrimary"
                         android:textSize="16sp"
                         android:textStyle="bold" />
 
@@ -257,14 +257,14 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="🌸 Ovulation Window Alert"
-                        android:textColor="#000000"
+                        android:textColor="@color/textPrimary"
                         android:textSize="13sp"
                         android:textStyle="bold" />
 
                     <TextView
+                        android:layout_marginTop="2dp"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
                         android:text="Fires at 12:00 AM Midnight when ovulation starts"
                         android:textColor="@color/textSecondary"
                         android:textSize="11sp" />
@@ -297,7 +297,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="🩸 Period Approach Warning (2 Days Prior)"
-                        android:textColor="#000000"
+                        android:textColor="@color/textPrimary"
                         android:textSize="13sp"
                         android:textStyle="bold" />
 
@@ -337,7 +337,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="💊 Daily Medicine / Iron Supplement"
-                        android:textColor="#000000"
+                        android:textColor="@color/textPrimary"
                         android:textSize="13sp"
                         android:textStyle="bold" />
 
@@ -377,7 +377,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="🍵 Hydration &amp; Soothing Chamomile Tea"
-                        android:textColor="#000000"
+                        android:textColor="@color/textPrimary"
                         android:textSize="13sp"
                         android:textStyle="bold" />
 

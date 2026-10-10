@@ -51,7 +51,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text="Aman Sharma"
-                android:textColor="#0F172A"
+                android:textColor="@color/textPrimary"
                 android:textSize="16sp"
                 android:textStyle="bold" />
 
@@ -78,7 +78,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:text="🌸 Requested Pads: Night Care (10x)"
-            android:textColor="#64748B"
+            android:textColor="@color/textSecondary"
             android:textSize="13sp" />
     </LinearLayout>
 
@@ -95,7 +95,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="12:45 PM"
-            android:textColor="#94A3B8"
+            android:textColor="@color/textHint"
             android:textSize="11sp" />
 
         <TextView

@@ -6,7 +6,7 @@ const jwtSecret = process.env.JWT_SECRET || 'fallback_secret_key';
 
 const register = async (req, res, next) => {
   try {
-    const { email, password, display_name } = req.body;
+    const { email, password, display_name, usage_mode, gender } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ success: false, message: 'Email and password are required' });
@@ -20,18 +20,31 @@ const register = async (req, res, next) => {
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
+    const cleanGender = (gender || 'FEMALE').trim().toUpperCase();
+    const cleanUsageMode = (usage_mode || 'TRACK_CYCLE').trim().toUpperCase();
 
     // Insert user
     const { data: newUser, error: userError } = await supabase
       .from('users')
-      .insert([{ email: email.toLowerCase(), password_hash: passwordHash, role: 'USER', status: 'ACTIVE' }])
+      .insert([{
+        email: email.toLowerCase(),
+        password_hash: passwordHash,
+        role: 'USER',
+        status: 'ACTIVE',
+        usage_mode: cleanUsageMode,
+        gender: cleanGender
+      }])
       .select()
       .single();
 
     if (userError) throw userError;
 
     // Insert profile
-    await supabase.from('profiles').insert([{ user_id: newUser.id, display_name: display_name || email.split('@')[0] }]);
+    await supabase.from('profiles').insert([{
+      user_id: newUser.id,
+      display_name: display_name || email.split('@')[0],
+      gender: cleanGender
+    }]);
 
     // Insert baseline cycle settings
     await supabase.from('cycle_settings').insert([{ user_id: newUser.id, average_cycle_length: 28, average_period_length: 5 }]);
@@ -47,6 +60,8 @@ const register = async (req, res, next) => {
         id: newUser.id,
         email: newUser.email,
         role: newUser.role,
+        usage_mode: cleanUsageMode,
+        gender: cleanGender,
         display_name: display_name || email.split('@')[0]
       }
     });
@@ -243,10 +258,15 @@ const resetPassword = async (req, res, next) => {
 const updateProfile = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { display_name, emergency_contact_phone, emergency_contact_name, emergency_contact_relation } = req.body;
+    const { display_name, gender, emergency_contact_phone, emergency_contact_name, emergency_contact_relation } = req.body;
 
     const updates = { updated_at: new Date() };
     if (display_name) updates.display_name = display_name.trim();
+    if (gender) {
+      const cleanGen = String(gender).trim().toUpperCase();
+      updates.gender = cleanGen;
+      await supabase.from('users').update({ gender: cleanGen }).eq('id', userId);
+    }
     if (emergency_contact_phone !== undefined) updates.emergency_contact_phone = emergency_contact_phone;
     if (emergency_contact_name !== undefined) updates.emergency_contact_name = emergency_contact_name;
     if (emergency_contact_relation !== undefined) updates.emergency_contact_relation = emergency_contact_relation;

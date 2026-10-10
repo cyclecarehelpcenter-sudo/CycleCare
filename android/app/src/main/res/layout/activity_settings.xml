@@ -16,7 +16,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Settings &amp; Language"
-            android:textColor="#000000"
+            android:textColor="@color/textPrimary"
             android:textSize="24sp"
             android:textStyle="bold" />
 
@@ -41,7 +41,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="APP LANGUAGE / भाषा"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="12sp"
                 android:textStyle="bold"
                 android:letterSpacing="0.05" />
@@ -81,7 +81,7 @@
                     android:layout_weight="1"
                     android:layout_marginEnd="6dp"
                     android:text="🇮🇳 हिंदी"
-                    android:textColor="#000000"
+                    android:textColor="@color/textPrimary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     app:cornerRadius="22dp"
@@ -94,7 +94,7 @@
                     android:layout_height="44dp"
                     android:layout_weight="1"
                     android:text="🇮🇳 Hinglish"
-                    android:textColor="#000000"
+                    android:textColor="@color/textPrimary"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     app:cornerRadius="22dp"
@@ -102,6 +102,51 @@
 
             </LinearLayout>
 
+        </LinearLayout>
+
+        <!-- 🌙 Dark Mode Card -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_neu_card_raised"
+            android:orientation="vertical"
+            android:padding="18dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🌙 Dark Mode"
+                        android:textColor="@color/textPrimary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:text="Switch between light and night theme"
+                        android:textColor="@color/textSecondary"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.SwitchCompat
+                    android:id="@+id/sw_dark_mode"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" />
+            </LinearLayout>
         </LinearLayout>
 
         <!-- ⏰ Midnight 12:00 AM Cycle Phase Notification Card -->
@@ -129,7 +174,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Midnight Phase Alert (रात 12 बजे)"
-                        android:textColor="#000000"
+                        android:textColor="@color/textPrimary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
 
@@ -192,7 +237,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Discreet Privacy Notifications"
-                        android:textColor="#000000"
+                        android:textColor="@color/textPrimary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
 
@@ -234,7 +279,7 @@
             android:layout_height="48dp"
             android:layout_marginTop="12dp"
             android:text="Export Personal Data (JSON)"
-            android:textColor="#000000"
+            android:textColor="@color/textPrimary"
             android:textSize="13sp"
             android:textStyle="bold"
             app:cornerRadius="24dp"

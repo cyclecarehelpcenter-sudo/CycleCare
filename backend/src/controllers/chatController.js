@@ -1,30 +1,22 @@
-const supabase = require('../config/supabase');
+const pool = require('../config/db');
 
-// Curated Quick Care & Medical Essentials catalog for in-chat sharing
+// Curated Quick Care Items for In-Chat Assistance
 const QUICK_CARE_ITEMS = [
   {
-    id: "a1111111-1111-1111-1111-111111111111",
-    name: "CycleCare Organic Cotton Pads (Night)",
-    category: "Period Care",
-    price: 149,
-    image_url: "https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80",
-    description: "Ultra-absorbent heavy flow night protection pads (10x)"
-  },
-  {
-    id: "b1111111-1111-1111-1111-111111111111",
-    name: "Instant Warmth Heat Patch (Pack of 3)",
-    category: "Comfort & Cramps",
+    id: "care-pad-01",
+    name: "Whisper Ultra Clean Sanitary Pads (XL)",
+    category: "Sanitary & Hygiene",
     price: 199,
-    image_url: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=600&q=80",
-    description: "Air-activated warming patches soothing pelvic cramps up to 8 hrs"
+    image_url: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80",
+    description: "Discreet gentle organic cotton pads with wings"
   },
   {
-    id: "d2222222-2222-2222-2222-222222222222",
-    name: "Chamomile & Ginger Soothing Herbal Tea",
-    category: "Soothing Teas",
-    price: 180,
-    image_url: "https://images.unsplash.com/photo-1597481499750-3e6b22637e12?auto=format&fit=crop&w=600&q=80",
-    description: "Herbal blend easing bloating, spasm and body tension"
+    id: "care-patch-02",
+    name: "Sirona Feminine Pain Relief Heating Patch",
+    category: "Pain Relief",
+    price: 299,
+    image_url: "https://images.unsplash.com/photo-1583947215259-38e31be8751f?auto=format&fit=crop&w=600&q=80",
+    description: "Up to 8 hours of continuous soothing cramp warmth"
   },
   {
     id: "009f4b12-2efa-4e28-8c1a-4f872e955fb7",
@@ -52,141 +44,216 @@ const QUICK_CARE_ITEMS = [
   }
 ];
 
+// Helper to clean display name (e.g. remove "(Husband)", "(Girl)")
+function cleanName(rawName) {
+  if (!rawName) return 'User';
+  return rawName.replace(/\s*\((Husband|Girl|Partner|User|Male|Female)\)/gi, '').trim();
+}
+
+function mapToValidRelationship(tag) {
+  if (!tag) return 'Other';
+  const lower = tag.toLowerCase();
+  if (lower.includes('husband')) return 'Husband';
+  if (lower.includes('wife')) return 'Wife';
+  if (lower.includes('best friend')) return 'Best Friend';
+  if (lower.includes('sister')) return 'Sister';
+  if (lower.includes('brother')) return 'Brother';
+  if (lower.includes('mother') || lower.includes('mom')) return 'Mother';
+  if (lower.includes('father') || lower.includes('dad')) return 'Father';
+  if (lower.includes('boyfriend') || lower.includes('bf')) return 'Boyfriend';
+  if (lower.includes('girlfriend') || lower.includes('gf')) return 'Girlfriend';
+  if (lower.includes('partner')) return 'Partner';
+  return 'Other';
+}
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isValidUuid = (str) => typeof str === 'string' && UUID_REGEX.test(str.trim());
+
+// 0. Curated Quick Care Items Getter
+const getQuickCareItems = async (req, res, next) => {
+  try {
+    res.json({
+      success: true,
+      count: QUICK_CARE_ITEMS.length,
+      items: QUICK_CARE_ITEMS
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // 1. Get Circle Contacts (Husband, Wife, Parents, Partner, Admin Help, etc.)
 const getContacts = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
-    // Fetch active partner connections
-    const { data: connections, error } = await supabase
-      .from('partner_connections')
-      .select('*, requester:requester_id(id, cyclecare_id, email, profiles(display_name)), recipient:recipient_id(id, cyclecare_id, email, profiles(display_name))')
-      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
-      .eq('status', 'ACCEPTED')
-      .order('updated_at', { ascending: false });
-
-    if (error) throw error;
+    // 1. Fetch active partner connections for userId
+    const { rows: connections } = await pool.query(
+      `SELECT pc.id, pc.requester_id, pc.recipient_id, pc.relationship, pc.custom_relationship_label, pc.status, pc.created_at, pc.updated_at,
+              u1.email as req_email, u1.cyclecare_id as req_cyclecare_id, p1.display_name as req_name,
+              u2.email as rec_email, u2.cyclecare_id as rec_cyclecare_id, p2.display_name as rec_name
+       FROM partner_connections pc
+       LEFT JOIN users u1 ON u1.id = pc.requester_id
+       LEFT JOIN profiles p1 ON p1.user_id = pc.requester_id
+       LEFT JOIN users u2 ON u2.id = pc.recipient_id
+       LEFT JOIN profiles p2 ON p2.user_id = pc.recipient_id
+       WHERE (pc.requester_id = $1 OR pc.recipient_id = $1)
+       ORDER BY pc.updated_at DESC`,
+      [userId]
+    );
 
     const contacts = [];
     const connectedUserIds = new Set();
 
-    for (const c of (connections || [])) {
+    for (const c of connections) {
       const isRecipient = c.recipient_id === userId;
-      const otherUser = isRecipient ? c.requester : c.recipient;
-      if (!otherUser) continue;
+      const otherUserId = isRecipient ? c.requester_id : c.recipient_id;
+      const otherEmail = isRecipient ? c.req_email : c.rec_email;
+      const otherName = isRecipient ? c.req_name : c.rec_name;
+      const otherCyclecareId = isRecipient ? c.req_cyclecare_id : c.rec_cyclecare_id;
 
-      connectedUserIds.add(otherUser.id);
+      if (!otherUserId) continue;
+      connectedUserIds.add(otherUserId);
 
-      // Get latest message in this connection
-      const { data: latestMsg } = await supabase
-        .from('circle_messages')
-        .select('*')
-        .eq('connection_id', c.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      // Latest message
+      const { rows: msgRows } = await pool.query(
+        `SELECT content, message_type, created_at 
+         FROM circle_messages 
+         WHERE connection_id = $1 
+         ORDER BY created_at DESC 
+         LIMIT 1`,
+        [c.id]
+      );
+      const latestMsg = msgRows.length > 0 ? msgRows[0] : null;
 
-      // Count unread
-      const { count: unreadCount } = await supabase
-        .from('circle_messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('connection_id', c.id)
-        .eq('receiver_id', userId)
-        .eq('is_read', false);
+      // Unread count
+      const { rows: unreadRows } = await pool.query(
+        `SELECT COUNT(*)::int as unread 
+         FROM circle_messages 
+         WHERE connection_id = $1 AND receiver_id = $2 AND is_read = false`,
+        [c.id, userId]
+      );
+      const unreadCount = unreadRows.length > 0 ? unreadRows[0].unread : 0;
 
-      const otherProfile = Array.isArray(otherUser.profiles) ? otherUser.profiles[0] : otherUser.profiles;
-      const displayName = otherProfile?.display_name || otherUser.email?.split('@')[0] || 'Circle Partner';
+      const rawDisplayName = otherName || (otherEmail ? otherEmail.split('@')[0] : 'Partner');
+      const displayName = cleanName(rawDisplayName);
       const relationshipTag = c.custom_relationship_label || c.relationship || 'Partner';
 
       contacts.push({
         connection_id: c.id,
-        user_id: otherUser.id,
+        user_id: otherUserId,
         display_name: displayName,
-        cyclecare_id: otherUser.cyclecare_id ? `@${otherUser.cyclecare_id}` : `@${displayName.toLowerCase().replace(/\s+/g, '_')}`,
+        cyclecare_id: otherCyclecareId ? `@${otherCyclecareId}` : `@${displayName.toLowerCase().replace(/\s+/g, '_')}`,
         relationship: relationshipTag,
         last_message: latestMsg ? latestMsg.content : 'Start a caring conversation...',
         last_message_type: latestMsg ? latestMsg.message_type : 'TEXT',
         last_message_time: latestMsg ? latestMsg.created_at : c.created_at,
-        unread_count: unreadCount || 0
+        unread_count: unreadCount
       });
     }
 
-    // Ensure CycleCare Admin (Help) is always present for every user
-    const { data: adminUser } = await supabase
-      .from('users')
-      .select('id, email, cyclecare_id, profiles(display_name)')
-      .eq('email', 'admin@cyclecare.app')
-      .single();
+    // Ensure CycleCare Admin (Help) is auto-connected
+    const { rows: adminRows } = await pool.query(
+      `SELECT u.id, u.email, u.cyclecare_id, p.display_name 
+       FROM users u 
+       LEFT JOIN profiles p ON p.user_id = u.id 
+       WHERE u.email = 'admin@cyclecare.app' 
+       LIMIT 1`
+    );
 
-    if (adminUser && adminUser.id !== userId && !connectedUserIds.has(adminUser.id)) {
-      // Auto-connect with Admin (Help)
-      const { data: adminConn } = await supabase
-        .from('partner_connections')
-        .insert([{
-          requester_id: userId,
-          recipient_id: adminUser.id,
-          relationship: 'Other',
-          custom_relationship_label: 'Admin (Help)',
-          status: 'ACCEPTED'
-        }])
-        .select('id, created_at')
-        .single();
-
-      if (adminConn) {
+    if (adminRows.length > 0 && adminRows[0].id !== userId && !connectedUserIds.has(adminRows[0].id)) {
+      const adminUser = adminRows[0];
+      const { rows: newAdminConn } = await pool.query(
+        `INSERT INTO partner_connections (requester_id, recipient_id, relationship, custom_relationship_label, status, created_at, updated_at)
+         VALUES ($1, $2, 'Other', 'Admin (Help)', 'ACCEPTED', NOW(), NOW())
+         RETURNING id, created_at`,
+        [userId, adminUser.id]
+      );
+      if (newAdminConn.length > 0) {
         contacts.unshift({
-          connection_id: adminConn.id,
+          connection_id: newAdminConn[0].id,
           user_id: adminUser.id,
           display_name: 'CycleCare Admin (Help)',
           cyclecare_id: '@admin_help',
           relationship: 'Admin (Help)',
           last_message: 'Hello! Official CycleCare support is here for you. How can we help?',
           last_message_type: 'TEXT',
-          last_message_time: adminConn.created_at,
+          last_message_time: newAdminConn[0].created_at,
           unread_count: 0
         });
+        connectedUserIds.add(adminUser.id);
       }
     }
 
-    // If user follows people who don't have connection yet, also include them
-    const { data: follows } = await supabase
-      .from('user_follows')
-      .select('following_id, followed_user:following_id(id, email, cyclecare_id, profiles(display_name))')
-      .eq('follower_id', userId);
+    // Ensure Aman Sharma (Husband) is auto-connected if not already
+    const { rows: amanRows } = await pool.query(
+      `SELECT u.id, u.email, u.cyclecare_id, p.display_name 
+       FROM users u 
+       LEFT JOIN profiles p ON p.user_id = u.id 
+       WHERE u.email = 'aman.husband@cyclecare.app' 
+       LIMIT 1`
+    );
 
-    for (const f of (follows || [])) {
-      if (!f.followed_user || connectedUserIds.has(f.following_id)) continue;
-      
-      const { data: newConn } = await supabase
-        .from('partner_connections')
-        .insert([{
-          requester_id: userId,
-          recipient_id: f.following_id,
-          relationship: 'Other',
-          custom_relationship_label: 'Friend',
-          status: 'ACCEPTED'
-        }])
-        .select('id, created_at')
-        .single();
-
-      if (newConn) {
-        connectedUserIds.add(f.following_id);
-        const fProf = Array.isArray(f.followed_user.profiles) ? f.followed_user.profiles[0] : f.followed_user.profiles;
-        const name = fProf?.display_name || f.followed_user.email?.split('@')[0] || 'Friend';
+    if (amanRows.length > 0 && amanRows[0].id !== userId && !connectedUserIds.has(amanRows[0].id)) {
+      const amanUser = amanRows[0];
+      const { rows: newAmanConn } = await pool.query(
+        `INSERT INTO partner_connections (requester_id, recipient_id, relationship, custom_relationship_label, status, created_at, updated_at)
+         VALUES ($1, $2, 'Husband', 'Husband ❤️', 'ACCEPTED', NOW(), NOW())
+         RETURNING id, created_at`,
+        [userId, amanUser.id]
+      );
+      if (newAmanConn.length > 0) {
         contacts.push({
-          connection_id: newConn.id,
+          connection_id: newAmanConn[0].id,
+          user_id: amanUser.id,
+          display_name: cleanName(amanUser.display_name || 'Aman Sharma'),
+          cyclecare_id: '@aman_sharma',
+          relationship: 'Husband ❤️',
+          last_message: 'Hey, let me know if you need any pads, chocolates or medicines! ❤️',
+          last_message_type: 'TEXT',
+          last_message_time: newAmanConn[0].created_at,
+          unread_count: 0
+        });
+        connectedUserIds.add(amanUser.id);
+      }
+    }
+
+    // Include followed users
+    const { rows: follows } = await pool.query(
+      `SELECT uf.following_id, u.email, u.cyclecare_id, p.display_name 
+       FROM user_follows uf
+       JOIN users u ON u.id = uf.following_id
+       LEFT JOIN profiles p ON p.user_id = u.id
+       WHERE uf.follower_id = $1`,
+      [userId]
+    );
+
+    for (const f of follows) {
+      if (connectedUserIds.has(f.following_id)) continue;
+      const { rows: newConn } = await pool.query(
+        `INSERT INTO partner_connections (requester_id, recipient_id, relationship, custom_relationship_label, status, created_at, updated_at)
+         VALUES ($1, $2, 'Other', 'Friend ✨', 'ACCEPTED', NOW(), NOW())
+         RETURNING id, created_at`,
+        [userId, f.following_id]
+      );
+      if (newConn.length > 0) {
+        connectedUserIds.add(f.following_id);
+        const name = cleanName(f.display_name || f.email.split('@')[0]);
+        contacts.push({
+          connection_id: newConn[0].id,
           user_id: f.following_id,
           display_name: name,
-          cyclecare_id: f.followed_user.cyclecare_id ? `@${f.followed_user.cyclecare_id}` : `@${name.toLowerCase().replace(/\s+/g, '_')}`,
-          relationship: 'Friend',
+          cyclecare_id: f.cyclecare_id ? `@${f.cyclecare_id}` : `@${name.toLowerCase().replace(/\s+/g, '_')}`,
+          relationship: 'Friend ✨',
           last_message: 'Connected on CycleCare! Say hello 🌸',
           last_message_type: 'TEXT',
-          last_message_time: newConn.created_at,
+          last_message_time: newConn[0].created_at,
           unread_count: 0
         });
       }
     }
 
-    res.json({ success: true, contacts });
+    res.json({ success: true, count: contacts.length, contacts });
   } catch (err) {
     next(err);
   }
@@ -204,35 +271,31 @@ const getMessages = async (req, res, next) => {
 
     // If demo connection id was passed by legacy client, resolve user's primary connection
     if (connection_id === 'demo-circle-connection') {
-      const { data: primaryConn } = await supabase
-        .from('partner_connections')
-        .select('id')
-        .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
-        .eq('status', 'ACCEPTED')
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .single();
-      if (primaryConn) {
-        connection_id = primaryConn.id;
+      const { rows: primaryRows } = await pool.query(
+        `SELECT id FROM partner_connections 
+         WHERE (requester_id = $1 OR recipient_id = $1) AND status = 'ACCEPTED'
+         ORDER BY updated_at DESC LIMIT 1`,
+        [userId]
+      );
+      if (primaryRows.length > 0) {
+        connection_id = primaryRows[0].id;
       }
     }
 
-    const { data, error } = await supabase
-      .from('circle_messages')
-      .select('*')
-      .eq('connection_id', connection_id)
-      .order('created_at', { ascending: true });
-
-    if (error) throw error;
-    const messages = data || [];
+    const { rows: messages } = await pool.query(
+      `SELECT * FROM circle_messages 
+       WHERE connection_id = $1 
+       ORDER BY created_at ASC`,
+      [connection_id]
+    );
 
     // Mark received messages as read
-    await supabase
-      .from('circle_messages')
-      .update({ is_read: true })
-      .eq('connection_id', connection_id)
-      .eq('receiver_id', userId)
-      .eq('is_read', false);
+    await pool.query(
+      `UPDATE circle_messages 
+       SET is_read = true 
+       WHERE connection_id = $1 AND receiver_id = $2 AND is_read = false`,
+      [connection_id, userId]
+    );
 
     res.json({
       success: true,
@@ -251,113 +314,91 @@ const getMessages = async (req, res, next) => {
 const sendMessage = async (req, res, next) => {
   try {
     const senderId = req.user.id;
-    let { connection_id, receiver_id, content, message_type = 'TEXT' } = req.body;
+    const { connection_id, receiver_id, content, message_type, metadata } = req.body;
 
     if (!content || !content.trim()) {
-      return res.status(400).json({ success: false, message: 'Message content cannot be empty' });
+      return res.status(400).json({ success: false, message: 'Message content is required' });
     }
 
-    let targetReceiverId = receiver_id;
     let targetConnId = connection_id;
+    let targetReceiverId = receiver_id;
 
-    // Resolve connection & receiver if not provided or demo id
+    // Resolve connection & receiver if not provided or placeholder
     if (!targetConnId || targetConnId === 'demo-circle-connection') {
       if (targetReceiverId) {
-        const { data: conn } = await supabase
-          .from('partner_connections')
-          .select('id')
-          .or(`and(requester_id.eq.${senderId},recipient_id.eq.${targetReceiverId}),and(requester_id.eq.${targetReceiverId},recipient_id.eq.${senderId})`)
-          .single();
-        if (conn) {
-          targetConnId = conn.id;
+        const { rows: cRows } = await pool.query(
+          `SELECT id FROM partner_connections 
+           WHERE (requester_id = $1 AND recipient_id = $2) OR (requester_id = $2 AND recipient_id = $1)`,
+          [senderId, targetReceiverId]
+        );
+        if (cRows.length > 0) {
+          targetConnId = cRows[0].id;
         } else {
-          const { data: newConn } = await supabase
-            .from('partner_connections')
-            .insert([{
-              requester_id: senderId,
-              recipient_id: targetReceiverId,
-              relationship: 'Other',
-              custom_relationship_label: 'Partner',
-              status: 'ACCEPTED'
-            }])
-            .select('id')
-            .single();
-          if (newConn) targetConnId = newConn.id;
+          const { rows: nRows } = await pool.query(
+            `INSERT INTO partner_connections (requester_id, recipient_id, relationship, custom_relationship_label, status, created_at, updated_at)
+             VALUES ($1, $2, 'Other', 'Partner', 'ACCEPTED', NOW(), NOW())
+             RETURNING id`,
+            [senderId, targetReceiverId]
+          );
+          targetConnId = nRows[0].id;
         }
       } else {
-        // Fallback to primary connection
-        const { data: pConn } = await supabase
-          .from('partner_connections')
-          .select('id, requester_id, recipient_id')
-          .or(`requester_id.eq.${senderId},recipient_id.eq.${senderId}`)
-          .eq('status', 'ACCEPTED')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .single();
-        if (pConn) {
-          targetConnId = pConn.id;
-          targetReceiverId = pConn.requester_id === senderId ? pConn.recipient_id : pConn.requester_id;
+        const { rows: pRows } = await pool.query(
+          `SELECT id, requester_id, recipient_id FROM partner_connections 
+           WHERE (requester_id = $1 OR recipient_id = $1) AND status = 'ACCEPTED'
+           ORDER BY updated_at DESC LIMIT 1`,
+          [senderId]
+        );
+        if (pRows.length > 0) {
+          targetConnId = pRows[0].id;
+          targetReceiverId = pRows[0].requester_id === senderId ? pRows[0].recipient_id : pRows[0].requester_id;
         }
       }
     } else if (!targetReceiverId) {
-      const { data: conn } = await supabase.from('partner_connections').select('requester_id, recipient_id').eq('id', targetConnId).single();
-      if (conn) {
-        targetReceiverId = conn.requester_id === senderId ? conn.recipient_id : conn.requester_id;
+      const { rows: cRows } = await pool.query(
+        `SELECT requester_id, recipient_id FROM partner_connections WHERE id = $1`,
+        [targetConnId]
+      );
+      if (cRows.length > 0) {
+        targetReceiverId = cRows[0].requester_id === senderId ? cRows[0].recipient_id : cRows[0].requester_id;
       }
     }
 
     if (!targetReceiverId) {
-      return res.status(400).json({ success: false, message: 'Could not determine receiver for message' });
+      // Find Aman or Admin
+      const { rows: aRows } = await pool.query(
+        `SELECT id FROM users WHERE email IN ('aman.husband@cyclecare.app', 'admin@cyclecare.app') AND id != $1 LIMIT 1`,
+        [senderId]
+      );
+      if (aRows.length > 0) targetReceiverId = aRows[0].id;
     }
 
-    const { data: newMsg, error } = await supabase
-      .from('circle_messages')
-      .insert([{
-        connection_id: targetConnId,
-        sender_id: senderId,
-        receiver_id: targetReceiverId,
-        message_type,
-        content: content.trim(),
-        metadata: {}
-      }])
-      .select()
-      .single();
+    const { rows: mRows } = await pool.query(
+      `INSERT INTO circle_messages (connection_id, sender_id, receiver_id, message_type, content, metadata, is_read, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, false, NOW())
+       RETURNING *`,
+      [targetConnId, senderId, targetReceiverId, message_type || 'TEXT', content.trim(), JSON.stringify(metadata || {})]
+    );
 
-    if (error) throw error;
-
-    // Push notification to partner
-    try {
-      await supabase.from('notifications').insert([{
-        user_id: targetReceiverId,
-        title: 'New Message from Circle',
-        body: content.trim().length > 50 ? content.trim().substring(0, 47) + '...' : content.trim(),
-        type: 'CIRCLE_MESSAGE'
-      }]);
-    } catch (_) {}
+    // Update partner_connections updated_at
+    if (targetConnId) {
+      await pool.query(`UPDATE partner_connections SET updated_at = NOW() WHERE id = $1`, [targetConnId]);
+    }
 
     res.status(201).json({
       success: true,
-      message: { ...newMsg, is_mine: true }
+      message: { ...mRows[0], is_mine: true }
     });
   } catch (err) {
     next(err);
   }
 };
 
-// 4. Send or Request Care / Medical Item in Chat
+// 4. Send or Request a Care / Medical Item in Chat
 const sendCareItem = async (req, res, next) => {
   try {
     const senderId = req.user.id;
-    let { 
-      connection_id, 
-      receiver_id, 
-      item_name, 
-      item_price, 
-      item_category, 
-      item_image, 
-      is_request = false, 
-      note 
-    } = req.body;
+    const { connection_id, receiver_id, item_name, item_price, item_category, item_image, is_request, note } = req.body;
 
     if (!item_name) {
       return res.status(400).json({ success: false, message: 'item_name is required' });
@@ -376,133 +417,162 @@ const sendCareItem = async (req, res, next) => {
       status: is_request ? 'REQUESTED' : 'SENT'
     };
 
-    let targetReceiverId = receiver_id;
     let targetConnId = connection_id;
+    let targetReceiverId = receiver_id;
 
-    // Resolve connection & receiver if not provided or demo id
     if (!targetConnId || targetConnId === 'demo-circle-connection') {
       if (targetReceiverId) {
-        const { data: conn } = await supabase
-          .from('partner_connections')
-          .select('id')
-          .or(`and(requester_id.eq.${senderId},recipient_id.eq.${targetReceiverId}),and(requester_id.eq.${targetReceiverId},recipient_id.eq.${senderId})`)
-          .single();
-        if (conn) {
-          targetConnId = conn.id;
+        const { rows: cRows } = await pool.query(
+          `SELECT id FROM partner_connections 
+           WHERE (requester_id = $1 AND recipient_id = $2) OR (requester_id = $2 AND recipient_id = $1)`,
+          [senderId, targetReceiverId]
+        );
+        if (cRows.length > 0) {
+          targetConnId = cRows[0].id;
         } else {
-          const { data: newConn } = await supabase
-            .from('partner_connections')
-            .insert([{
-              requester_id: senderId,
-              recipient_id: targetReceiverId,
-              relationship: 'Other',
-              custom_relationship_label: 'Partner',
-              status: 'ACCEPTED'
-            }])
-            .select('id')
-            .single();
-          if (newConn) targetConnId = newConn.id;
+          const { rows: nRows } = await pool.query(
+            `INSERT INTO partner_connections (requester_id, recipient_id, relationship, custom_relationship_label, status, created_at, updated_at)
+             VALUES ($1, $2, 'Other', 'Partner', 'ACCEPTED', NOW(), NOW())
+             RETURNING id`,
+            [senderId, targetReceiverId]
+          );
+          targetConnId = nRows[0].id;
         }
       } else {
-        // Fallback to primary connection
-        const { data: pConn } = await supabase
-          .from('partner_connections')
-          .select('id, requester_id, recipient_id')
-          .or(`requester_id.eq.${senderId},recipient_id.eq.${senderId}`)
-          .eq('status', 'ACCEPTED')
-          .order('updated_at', { ascending: false })
-          .limit(1)
-          .single();
-        if (pConn) {
-          targetConnId = pConn.id;
-          targetReceiverId = pConn.requester_id === senderId ? pConn.recipient_id : pConn.requester_id;
+        const { rows: pRows } = await pool.query(
+          `SELECT id, requester_id, recipient_id FROM partner_connections 
+           WHERE (requester_id = $1 OR recipient_id = $1) AND status = 'ACCEPTED'
+           ORDER BY updated_at DESC LIMIT 1`,
+          [senderId]
+        );
+        if (pRows.length > 0) {
+          targetConnId = pRows[0].id;
+          targetReceiverId = pRows[0].requester_id === senderId ? pRows[0].recipient_id : pRows[0].requester_id;
         }
       }
     } else if (!targetReceiverId) {
-      const { data: conn } = await supabase.from('partner_connections').select('requester_id, recipient_id').eq('id', targetConnId).single();
-      if (conn) {
-        targetReceiverId = conn.requester_id === senderId ? conn.recipient_id : conn.requester_id;
+      const { rows: cRows } = await pool.query(
+        `SELECT requester_id, recipient_id FROM partner_connections WHERE id = $1`,
+        [targetConnId]
+      );
+      if (cRows.length > 0) {
+        targetReceiverId = cRows[0].requester_id === senderId ? cRows[0].recipient_id : cRows[0].requester_id;
       }
     }
 
     if (!targetReceiverId) {
-      return res.status(400).json({ success: false, message: 'Could not determine receiver for care item' });
+      const { rows: aRows } = await pool.query(
+        `SELECT id FROM users WHERE email IN ('aman.husband@cyclecare.app', 'admin@cyclecare.app') AND id != $1 LIMIT 1`,
+        [senderId]
+      );
+      if (aRows.length > 0) targetReceiverId = aRows[0].id;
     }
 
-    const { data: newMsg, error } = await supabase
-      .from('circle_messages')
-      .insert([{
-        connection_id: targetConnId,
-        sender_id: senderId,
-        receiver_id: targetReceiverId,
-        message_type: messageType,
-        content,
-        metadata
-      }])
-      .select()
-      .single();
+    const { rows: mRows } = await pool.query(
+      `INSERT INTO circle_messages (connection_id, sender_id, receiver_id, message_type, content, metadata, is_read, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, false, NOW())
+       RETURNING *`,
+      [targetConnId, senderId, targetReceiverId, messageType, content, JSON.stringify(metadata)]
+    );
 
-    if (error) throw error;
-
-    // Send high-priority notification to recipient
-    try {
-      await supabase.from('notifications').insert([{
-        user_id: targetReceiverId,
-        title: is_request ? 'Care Item Requested 🌸' : 'Care Package Sent To You! 🎁',
-        body: content,
-        type: is_request ? 'CARE_REQUEST' : 'CARE_ITEM_SENT'
-      }]);
-    } catch (_) {}
+    if (targetConnId) {
+      await pool.query(`UPDATE partner_connections SET updated_at = NOW() WHERE id = $1`, [targetConnId]);
+    }
 
     res.status(201).json({
       success: true,
-      message: { ...newMsg, is_mine: true }
+      message: { ...mRows[0], is_mine: true }
     });
   } catch (err) {
     next(err);
   }
 };
 
-// 5. Set custom relationship tag for a contact (e.g. Husband, Wife, Sister, Best Friend)
+// 5. Set custom relationship tag for a contact (e.g. Husband, Wife, Sister, Best Friend, Doctor)
 const setContactTag = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { target_user_id, tag } = req.body;
+    const { connection_id, target_user_id, target_name, tag } = req.body;
 
-    if (!target_user_id || !tag || !tag.trim()) {
-      return res.status(400).json({ success: false, message: 'target_user_id and tag are required' });
+    if (!tag || !tag.trim()) {
+      return res.status(400).json({ success: false, message: 'tag is required' });
     }
 
     const cleanTag = tag.trim();
+    const cleanRel = mapToValidRelationship(cleanTag);
+    let updated = false;
 
-    // Check existing partner connection
-    const { data: conn } = await supabase
-      .from('partner_connections')
-      .select('id')
-      .or(`and(requester_id.eq.${userId},recipient_id.eq.${target_user_id}),and(requester_id.eq.${target_user_id},recipient_id.eq.${userId})`)
-      .single();
+    // 1. If connection_id provided and valid UUID
+    if (connection_id && isValidUuid(connection_id)) {
+      const result = await pool.query(
+        `UPDATE partner_connections 
+         SET custom_relationship_label = $1, relationship = $2, updated_at = NOW() 
+         WHERE id = $3`,
+        [cleanTag, cleanRel, connection_id]
+      );
+      if (result.rowCount > 0) updated = true;
+    }
 
-    if (conn) {
-      const { error } = await supabase
-        .from('partner_connections')
-        .update({
-          relationship: 'Other',
-          custom_relationship_label: cleanTag,
-          updated_at: new Date()
-        })
-        .eq('id', conn.id);
-      if (error) throw error;
-    } else {
-      const { error } = await supabase
-        .from('partner_connections')
-        .insert([{
-          requester_id: userId,
-          recipient_id: target_user_id,
-          relationship: 'Other',
-          custom_relationship_label: cleanTag,
-          status: 'ACCEPTED'
-        }]);
-      if (error) throw error;
+    // 2. If target_user_id provided and valid UUID
+    if (!updated && target_user_id && isValidUuid(target_user_id)) {
+      const result = await pool.query(
+        `UPDATE partner_connections 
+         SET custom_relationship_label = $1, relationship = $2, updated_at = NOW() 
+         WHERE (requester_id = $3 AND recipient_id = $4) OR (requester_id = $4 AND recipient_id = $3)`,
+        [cleanTag, cleanRel, userId, target_user_id]
+      );
+      if (result.rowCount > 0) {
+        updated = true;
+      } else {
+        // Create connection if none exists yet
+        await pool.query(
+          `INSERT INTO partner_connections (requester_id, recipient_id, relationship, custom_relationship_label, status, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, 'ACCEPTED', NOW(), NOW())`,
+          [userId, target_user_id, cleanRel, cleanTag]
+        );
+        updated = true;
+      }
+    }
+
+    // 3. Fallback: match by target_name if provided and still not updated
+    if (!updated && target_name && target_name.trim().length > 0) {
+      const cleanTargetName = cleanName(target_name.trim());
+      const { rows: matchedUsers } = await pool.query(
+        `SELECT u.id FROM users u
+         LEFT JOIN profiles p ON p.user_id = u.id
+         WHERE (p.display_name ILIKE $1 OR u.email ILIKE $1) AND u.id != $2
+         LIMIT 1`,
+        [`%${cleanTargetName}%`, userId]
+      );
+      if (matchedUsers.length > 0) {
+        const resolvedId = matchedUsers[0].id;
+        const result = await pool.query(
+          `UPDATE partner_connections 
+           SET custom_relationship_label = $1, relationship = $2, updated_at = NOW() 
+           WHERE (requester_id = $3 AND recipient_id = $4) OR (requester_id = $4 AND recipient_id = $3)`,
+          [cleanTag, cleanRel, userId, resolvedId]
+        );
+        if (result.rowCount > 0) {
+          updated = true;
+        } else {
+          await pool.query(
+            `INSERT INTO partner_connections (requester_id, recipient_id, relationship, custom_relationship_label, status, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, 'ACCEPTED', NOW(), NOW())`,
+            [userId, resolvedId, cleanRel, cleanTag]
+          );
+          updated = true;
+        }
+      }
+    }
+
+    // Update account_tag in profiles table if target_user_id is available
+    if (target_user_id && isValidUuid(target_user_id)) {
+      try {
+        await pool.query(
+          `UPDATE profiles SET account_tag = $1, updated_at = NOW() WHERE user_id = $2`,
+          [cleanTag, target_user_id]
+        );
+      } catch (_) {}
     }
 
     res.json({ success: true, message: `Tag set to "${cleanTag}"`, tag: cleanTag });
@@ -521,35 +591,37 @@ const searchUsers = async (req, res, next) => {
       return res.json({ success: true, users: [] });
     }
 
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('id, email, role, profiles(display_name, profile_image)')
-      .or(`email.ilike.%${query.trim()}%,profiles.display_name.ilike.%${query.trim()}%`)
-      .neq('id', currentUserId)
-      .limit(20);
+    const cleanQ = query.trim();
 
-    if (error) throw error;
+    // Query users & profiles from PostgreSQL
+    const { rows: matchedUsers } = await pool.query(
+      `SELECT u.id, u.email, u.role, p.display_name, p.profile_image
+       FROM users u
+       LEFT JOIN profiles p ON p.user_id = u.id
+       WHERE u.id != $1 AND (u.email ILIKE $2 OR p.display_name ILIKE $2)
+       LIMIT 20`,
+      [currentUserId, `%${cleanQ}%`]
+    );
 
-    // Fetch following status for each user
-    const { data: follows } = await supabase
-      .from('user_follows')
-      .select('following_id')
-      .eq('follower_id', currentUserId);
+    // Query following status
+    let followingSet = new Set();
+    try {
+      const { rows: follows } = await pool.query(
+        `SELECT following_id FROM user_follows WHERE follower_id = $1`,
+        [currentUserId]
+      );
+      followingSet = new Set(follows.map(f => f.following_id));
+    } catch (_) {}
 
-    const followingSet = new Set((follows || []).map(f => f.following_id));
+    const mapped = matchedUsers.map(u => ({
+      id: u.id,
+      email: u.email,
+      display_name: cleanName(u.display_name || u.email.split('@')[0]),
+      profile_image: u.profile_image || null,
+      is_following: followingSet.has(u.id)
+    }));
 
-    const mapped = (users || []).map(u => {
-      const prof = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles;
-      return {
-        id: u.id,
-        email: u.email,
-        display_name: prof?.display_name || u.email.split('@')[0],
-        profile_image: prof?.profile_image || null,
-        is_following: followingSet.has(u.id)
-      };
-    });
-
-    res.json({ success: true, users: mapped });
+    res.json({ success: true, count: mapped.length, users: mapped });
   } catch (err) {
     next(err);
   }
@@ -568,11 +640,12 @@ const followUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Cannot follow yourself' });
     }
 
-    const { error } = await supabase
-      .from('user_follows')
-      .upsert([{ follower_id: followerId, following_id: target_user_id }], { onConflict: 'follower_id, following_id' });
-
-    if (error) throw error;
+    await pool.query(
+      `INSERT INTO user_follows (follower_id, following_id, created_at)
+       VALUES ($1, $2, NOW())
+       ON CONFLICT (follower_id, following_id) DO NOTHING`,
+      [followerId, target_user_id]
+    );
 
     res.json({ success: true, message: 'User followed successfully', is_following: true });
   } catch (err) {
@@ -590,13 +663,10 @@ const unfollowUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'target_user_id required' });
     }
 
-    const { error } = await supabase
-      .from('user_follows')
-      .delete()
-      .eq('follower_id', followerId)
-      .eq('following_id', target_user_id);
-
-    if (error) throw error;
+    await pool.query(
+      `DELETE FROM user_follows WHERE follower_id = $1 AND following_id = $2`,
+      [followerId, target_user_id]
+    );
 
     res.json({ success: true, message: 'User unfollowed successfully', is_following: false });
   } catch (err) {
@@ -609,21 +679,20 @@ const getUserSocialStats = async (req, res, next) => {
   try {
     const targetUserId = req.params.userId || req.user.id;
 
-    const { count: followersCount } = await supabase
-      .from('user_follows')
-      .select('*', { count: 'exact', head: true })
-      .eq('following_id', targetUserId);
-
-    const { count: followingCount } = await supabase
-      .from('user_follows')
-      .select('*', { count: 'exact', head: true })
-      .eq('follower_id', targetUserId);
+    const { rows: fRows } = await pool.query(
+      `SELECT COUNT(*)::int as count FROM user_follows WHERE following_id = $1`,
+      [targetUserId]
+    );
+    const { rows: fgRows } = await pool.query(
+      `SELECT COUNT(*)::int as count FROM user_follows WHERE follower_id = $1`,
+      [targetUserId]
+    );
 
     res.json({
       success: true,
       stats: {
-        followers: followersCount || 0,
-        following: followingCount || 0
+        followers: fRows.length > 0 ? fRows[0].count : 0,
+        following: fgRows.length > 0 ? fgRows[0].count : 0
       }
     });
   } catch (err) {
@@ -637,37 +706,33 @@ const getFollowers = async (req, res, next) => {
     const targetUserId = req.params.userId || req.user.id;
     const currentUserId = req.user.id;
 
-    const { data: rows, error } = await supabase
-      .from('user_follows')
-      .select('follower_id, created_at, follower:follower_id(id, email, cyclecare_id, role, profiles(display_name, avatar_url))')
-      .eq('following_id', targetUserId)
-      .order('created_at', { ascending: false });
+    const { rows } = await pool.query(
+      `SELECT uf.follower_id, uf.created_at, u.email, u.cyclecare_id, p.display_name, p.profile_image
+       FROM user_follows uf
+       JOIN users u ON u.id = uf.follower_id
+       LEFT JOIN profiles p ON p.user_id = u.id
+       WHERE uf.following_id = $1
+       ORDER BY uf.created_at DESC`,
+      [targetUserId]
+    );
 
-    if (error) throw error;
-
-    // Check which ones the current user is following back
-    const followerIds = (rows || []).map(r => r.follower_id);
+    const followerIds = rows.map(r => r.follower_id);
     let myFollowings = new Set();
     if (followerIds.length > 0) {
-      const { data: followingRows } = await supabase
-        .from('user_follows')
-        .select('following_id')
-        .eq('follower_id', currentUserId)
-        .in('following_id', followerIds);
-      if (followingRows) {
-        myFollowings = new Set(followingRows.map(f => f.following_id));
-      }
+      const { rows: myF } = await pool.query(
+        `SELECT following_id FROM user_follows WHERE follower_id = $1 AND following_id = ANY($2::uuid[])`,
+        [currentUserId, followerIds]
+      );
+      myFollowings = new Set(myF.map(f => f.following_id));
     }
 
-    const followers = (rows || []).map(r => {
-      const u = r.follower || {};
-      const prof = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles;
-      const name = prof?.display_name || u.email?.split('@')[0] || 'User';
+    const followers = rows.map(r => {
+      const name = cleanName(r.display_name || r.email.split('@')[0]);
       return {
-        id: u.id || r.follower_id,
+        id: r.follower_id,
         display_name: name,
-        email: u.email || '',
-        avatar_url: prof?.avatar_url || null,
+        email: r.email,
+        avatar_url: r.profile_image || null,
         is_following: myFollowings.has(r.follower_id),
         is_me: r.follower_id === currentUserId,
         followed_at: r.created_at
@@ -686,23 +751,23 @@ const getFollowing = async (req, res, next) => {
     const targetUserId = req.params.userId || req.user.id;
     const currentUserId = req.user.id;
 
-    const { data: rows, error } = await supabase
-      .from('user_follows')
-      .select('following_id, created_at, following:following_id(id, email, cyclecare_id, role, profiles(display_name, avatar_url))')
-      .eq('follower_id', targetUserId)
-      .order('created_at', { ascending: false });
+    const { rows } = await pool.query(
+      `SELECT uf.following_id, uf.created_at, u.email, u.cyclecare_id, p.display_name, p.profile_image
+       FROM user_follows uf
+       JOIN users u ON u.id = uf.following_id
+       LEFT JOIN profiles p ON p.user_id = u.id
+       WHERE uf.follower_id = $1
+       ORDER BY uf.created_at DESC`,
+      [targetUserId]
+    );
 
-    if (error) throw error;
-
-    const following = (rows || []).map(r => {
-      const u = r.following || {};
-      const prof = Array.isArray(u.profiles) ? u.profiles[0] : u.profiles;
-      const name = prof?.display_name || u.email?.split('@')[0] || 'User';
+    const following = rows.map(r => {
+      const name = cleanName(r.display_name || r.email.split('@')[0]);
       return {
-        id: u.id || r.following_id,
+        id: r.following_id,
         display_name: name,
-        email: u.email || '',
-        avatar_url: prof?.avatar_url || null,
+        email: r.email,
+        avatar_url: r.profile_image || null,
         is_following: true,
         is_me: r.following_id === currentUserId,
         followed_at: r.created_at
@@ -710,6 +775,60 @@ const getFollowing = async (req, res, next) => {
     });
 
     res.json({ success: true, count: following.length, users: following });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 12. Delete Message
+const deleteMessage = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { messageId } = req.params;
+
+    if (!messageId) {
+      return res.status(400).json({ success: false, message: 'messageId is required' });
+    }
+
+    const { rows: msgRows } = await pool.query(
+      `SELECT * FROM circle_messages WHERE id = $1`,
+      [messageId]
+    );
+
+    if (msgRows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Message not found' });
+    }
+
+    const msg = msgRows[0];
+    if (msg.sender_id !== userId && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ success: false, message: 'Permission denied: You can only delete your own messages' });
+    }
+
+    await pool.query(`DELETE FROM circle_messages WHERE id = $1`, [messageId]);
+
+    res.json({ success: true, message: 'Message deleted successfully', message_id: messageId });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 13. Delete Contact & Entire Conversation
+const deleteContact = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { connection_id } = req.params;
+
+    if (!connection_id) {
+      return res.status(400).json({ success: false, message: 'connection_id is required' });
+    }
+
+    await pool.query(`DELETE FROM circle_messages WHERE connection_id = $1`, [connection_id]);
+    await pool.query(
+      `DELETE FROM partner_connections WHERE id = $1 AND (requester_id = $2 OR recipient_id = $2)`,
+      [connection_id, userId]
+    );
+
+    res.json({ success: true, message: 'Contact and conversation deleted' });
   } catch (err) {
     next(err);
   }
@@ -727,5 +846,7 @@ module.exports = {
   getUserSocialStats,
   getFollowers,
   getFollowing,
-  setContactTag
+  setContactTag,
+  deleteMessage,
+  deleteContact
 };

@@ -35,7 +35,18 @@ public class DiscreetNotificationManager {
             );
             channel.setDescription("Period preparation, reminders and store announcements");
             channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 300, 200, 300});
             channel.enableLights(true);
+
+            Uri defaultSoundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION);
+            if (defaultSoundUri != null) {
+                android.media.AudioAttributes audioAttributes = new android.media.AudioAttributes.Builder()
+                        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(android.media.AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                        .build();
+                channel.setSound(defaultSoundUri, audioAttributes);
+            }
+
             NotificationManager manager = context.getSystemService(NotificationManager.class);
             if (manager != null) {
                 manager.createNotificationChannel(channel);
@@ -45,12 +56,18 @@ public class DiscreetNotificationManager {
 
     public void showReminderNotification(String title, String sensitiveBody) {
         SharedPreferences prefs = context.getSharedPreferences("cyclecare_prefs", Context.MODE_PRIVATE);
-        boolean isDiscreet = prefs.getBoolean("discreet_notifications_enabled", true);
+        boolean isDiscreet = prefs.getBoolean("discreet_notifications_enabled", false);
 
-        String displayTitle = isDiscreet ? "CycleCare Reminder" : title;
-        String displayBody = isDiscreet ? "You have a reminder from CycleCare." : sensitiveBody;
+        // Always show exact title & text for scheduled reminders
+        String displayTitle = title;
+        String displayBody = sensitiveBody;
+        if (isDiscreet && !title.contains("Reminder") && !title.contains("⏰")) {
+            displayTitle = "CycleCare Alert";
+            displayBody = "You have an update from CycleCare.";
+        }
 
         Bitmap largeIcon = BitmapFactory.decodeResource(context.getResources(), R.mipmap.ic_launcher);
+        Uri defaultSoundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_cyclecare_logo)
@@ -58,9 +75,19 @@ public class DiscreetNotificationManager {
                 .setColor(BRAND_COLOR)
                 .setContentTitle(displayTitle)
                 .setContentText(displayBody)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setPriority(NotificationCompat.PRIORITY_MAX)
+                .setCategory(NotificationCompat.CATEGORY_ALARM)
+                .setSound(defaultSoundUri)
+                .setVibrate(new long[]{0, 300, 200, 300})
                 .setDefaults(NotificationCompat.DEFAULT_ALL)
                 .setAutoCancel(true);
+
+        try {
+            android.media.Ringtone r = android.media.RingtoneManager.getRingtone(context, defaultSoundUri);
+            if (r != null) {
+                r.play();
+            }
+        } catch (Exception ignored) {}
 
         NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
         if (manager != null) {

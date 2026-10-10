@@ -196,6 +196,50 @@
                 android:textColorHint="#94A3B8"
                 android:textSize="15sp" />
 
+            <!-- Gender Selection -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="SELECT GENDER"
+                android:textColor="#000000"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal">
+
+                <Button
+                    android:id="@+id/btn_gender_female"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/bg_m3_button"
+                    android:text="🌸 Female"
+                    android:textColor="@color/textOnPrimary"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/btn_gender_male"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:text="👨 Male"
+                    android:textColor="#000000"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    app:cornerRadius="22dp"
+                    app:strokeColor="@color/colorGlassBorder" />
+
+            </LinearLayout>
+
             <!-- How will you use CycleCare? (Partner Care Mode Selection) -->
             <TextView
                 android:layout_width="match_parent"

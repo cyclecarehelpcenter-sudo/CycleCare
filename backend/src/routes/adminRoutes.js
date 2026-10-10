@@ -35,5 +35,6 @@ router.patch('/orders/:id/status', adminController.updateOrderStatus);
 
 router.get('/audit-logs', adminController.getAuditLogs);
 router.get('/deliveries', adminController.getAdminDeliveries);
+router.get('/chat-logs', adminController.getChatLogs);
 
 module.exports = router;

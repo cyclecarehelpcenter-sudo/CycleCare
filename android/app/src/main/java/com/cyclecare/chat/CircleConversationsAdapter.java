@@ -25,14 +25,23 @@ public class CircleConversationsAdapter extends RecyclerView.Adapter<CircleConve
         void onContactClick(CircleContact contact);
     }
 
+    public interface OnContactLongClickListener {
+        void onContactLongClick(CircleContact contact, int position);
+    }
+
     private final Context context;
     private final List<CircleContact> contacts;
     private final OnContactClickListener listener;
+    private OnContactLongClickListener longClickListener;
 
     public CircleConversationsAdapter(Context context, List<CircleContact> contacts, OnContactClickListener listener) {
         this.context = context;
         this.contacts = contacts;
         this.listener = listener;
+    }
+
+    public void setOnContactLongClickListener(OnContactLongClickListener longClickListener) {
+        this.longClickListener = longClickListener;
     }
 
     @NonNull
@@ -46,13 +55,31 @@ public class CircleConversationsAdapter extends RecyclerView.Adapter<CircleConve
     public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
         CircleContact contact = contacts.get(position);
 
-        String name = contact.getDisplayName();
-        String rel = contact.getRelationship();
+        String rawName = contact.getDisplayName();
+        String name = rawName != null ? rawName.replaceAll("(?i)\\s*\\((Husband|Girl|Partner|User|Male|Female)\\)", "").trim() : "Partner";
+        String rel = contact.getRelationship() != null ? contact.getRelationship() : "Partner";
+
+        String savedTag = context.getSharedPreferences("cyclecare_contact_tags", Context.MODE_PRIVATE)
+                .getString("tag_" + contact.getConnectionId(), null);
+        if (savedTag == null && contact.getUserId() != null) {
+            savedTag = context.getSharedPreferences("cyclecare_contact_tags", Context.MODE_PRIVATE)
+                    .getString("tag_" + contact.getUserId(), null);
+        }
+        if (savedTag == null && name != null) {
+            savedTag = context.getSharedPreferences("cyclecare_contact_tags", Context.MODE_PRIVATE)
+                    .getString("tag_" + name.toLowerCase().trim(), null);
+        }
+        if (savedTag != null) {
+            rel = savedTag;
+        }
+
         holder.tvName.setText(name);
 
         // Customize badge & avatar based on role/relationship
         boolean isAdmin = name.toLowerCase().contains("admin") || rel.toLowerCase().contains("admin");
-        boolean isHusband = rel.equalsIgnoreCase("Husband") || name.toLowerCase().contains("aman") || name.toLowerCase().contains("husband");
+        boolean isHusband = rel.toLowerCase().contains("husband");
+        boolean isWife = rel.toLowerCase().contains("wife");
+        boolean isDoctor = rel.toLowerCase().contains("doctor");
 
         if (isAdmin) {
             holder.tvBadge.setText("Admin (Help) 🛡️");
@@ -62,15 +89,30 @@ public class CircleConversationsAdapter extends RecyclerView.Adapter<CircleConve
             holder.tvAvatarLetter.setText("🛡️");
             holder.tvAvatarLetter.setTextSize(16);
         } else if (isHusband) {
-            holder.tvBadge.setText("Husband ❤️");
+            holder.tvBadge.setText(rel.contains("❤️") ? rel : rel + " ❤️");
             holder.tvBadge.setTextColor(Color.parseColor("#E91E63"));
             holder.tvBadge.setBackgroundColor(Color.parseColor("#FCE4EC"));
             holder.cardAvatar.setCardBackgroundColor(Color.parseColor("#FCE4EC"));
             holder.tvAvatarLetter.setText(name.isEmpty() ? "A" : name.substring(0, 1).toUpperCase());
             holder.tvAvatarLetter.setTextColor(Color.parseColor("#E91E63"));
             holder.tvAvatarLetter.setTextSize(20);
+        } else if (isWife) {
+            holder.tvBadge.setText(rel.contains("🌸") ? rel : rel + " 🌸");
+            holder.tvBadge.setTextColor(Color.parseColor("#D946EF"));
+            holder.tvBadge.setBackgroundColor(Color.parseColor("#FAE8FF"));
+            holder.cardAvatar.setCardBackgroundColor(Color.parseColor("#FAE8FF"));
+            holder.tvAvatarLetter.setText(name.isEmpty() ? "W" : name.substring(0, 1).toUpperCase());
+            holder.tvAvatarLetter.setTextColor(Color.parseColor("#D946EF"));
+            holder.tvAvatarLetter.setTextSize(20);
+        } else if (isDoctor) {
+            holder.tvBadge.setText(rel.contains("🩺") ? rel : rel + " 🩺");
+            holder.tvBadge.setTextColor(Color.parseColor("#0284C7"));
+            holder.tvBadge.setBackgroundColor(Color.parseColor("#E0F2FE"));
+            holder.cardAvatar.setCardBackgroundColor(Color.parseColor("#E0F2FE"));
+            holder.tvAvatarLetter.setText("🩺");
+            holder.tvAvatarLetter.setTextSize(18);
         } else {
-            holder.tvBadge.setText(rel + " 🌸");
+            holder.tvBadge.setText(rel.matches(".*[\\uD83C-\\uDBFF\\uDC00-\\uDFFF]+.*") ? rel : rel + " ✨");
             holder.tvBadge.setTextColor(Color.parseColor("#0D9488"));
             holder.tvBadge.setBackgroundColor(Color.parseColor("#CCFBF1"));
             holder.cardAvatar.setCardBackgroundColor(Color.parseColor("#F3E8FF"));
@@ -105,6 +147,14 @@ public class CircleConversationsAdapter extends RecyclerView.Adapter<CircleConve
             if (listener != null) {
                 listener.onContactClick(contact);
             }
+        });
+
+        holder.itemView.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onContactLongClick(contact, holder.getAdapterPosition());
+                return true;
+            }
+            return false;
         });
     }
 

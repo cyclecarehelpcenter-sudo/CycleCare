@@ -24,7 +24,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="CycleCare Store"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -44,7 +44,7 @@
             android:layout_height="40dp"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_orders"
-            app:tint="#2D3748"
+            app:tint="@color/textPrimary"
             android:contentDescription="My Orders" />
 
         <!-- Cart Action with Badge -->
@@ -62,7 +62,7 @@
                 android:layout_height="26dp"
                 android:layout_gravity="center"
                 android:src="@drawable/ic_cart"
-                app:tint="#2D3748" />
+                app:tint="@color/textPrimary" />
 
             <TextView
                 android:id="@+id/tv_store_cart_badge"
@@ -87,7 +87,7 @@
         android:layout_marginTop="12dp"
         app:cardCornerRadius="23dp"
         app:cardElevation="1dp"
-        app:cardBackgroundColor="@android:color/white">
+        app:cardBackgroundColor="@color/colorSurface">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -100,7 +100,7 @@
                 android:layout_width="20dp"
                 android:layout_height="20dp"
                 android:src="@drawable/ic_search"
-                app:tint="#718096"
+                app:tint="@color/textHint"
                 android:contentDescription="Search Icon" />
 
             <EditText
@@ -110,8 +110,8 @@
                 android:layout_marginStart="10dp"
                 android:background="@null"
                 android:hint="Search pads, heat patches, teas, kits..."
-                android:textColor="#000000"
-                android:textColorHint="#A0AEC0"
+                android:textColor="@color/textPrimary"
+                android:textColorHint="@color/textHint"
                 android:textSize="13sp"
                 android:imeOptions="actionSearch"
                 android:inputType="text"
@@ -151,7 +151,7 @@
                 android:layout_marginEnd="6dp"
                 android:paddingHorizontal="14dp"
                 android:text="Period Care"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 app:cornerRadius="18dp"
@@ -165,7 +165,7 @@
                 android:layout_marginEnd="6dp"
                 android:paddingHorizontal="14dp"
                 android:text="Comfort &amp; Cramps"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 app:cornerRadius="18dp"
@@ -179,7 +179,7 @@
                 android:layout_marginEnd="6dp"
                 android:paddingHorizontal="14dp"
                 android:text="Personal Care &amp; Wipes"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 app:cornerRadius="18dp"
@@ -193,7 +193,7 @@
                 android:layout_marginEnd="6dp"
                 android:paddingHorizontal="14dp"
                 android:text="Care Kits"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 app:cornerRadius="18dp"
@@ -207,7 +207,7 @@
                 android:layout_marginEnd="6dp"
                 android:paddingHorizontal="14dp"
                 android:text="Soothing Teas"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 app:cornerRadius="18dp"
@@ -220,7 +220,7 @@
                 android:layout_height="36dp"
                 android:paddingHorizontal="14dp"
                 android:text="Wellness &amp; Sleep"
-                android:textColor="#000000"
+                android:textColor="@color/textPrimary"
                 android:textSize="11sp"
                 android:textStyle="bold"
                 app:cornerRadius="18dp"

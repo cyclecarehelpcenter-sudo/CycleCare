@@ -9,7 +9,7 @@
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="#FFFFFF"
+        android:background="@color/colorSurface"
         app:elevation="2dp">
 
         <LinearLayout
@@ -25,7 +25,7 @@
                 android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_arrow_back"
-                app:tint="#1A202C"
+                app:tint="@color/textPrimary"
                 android:contentDescription="Back" />
 
             <TextView
@@ -34,7 +34,7 @@
                 android:layout_weight="1"
                 android:layout_marginStart="8dp"
                 android:text="Care Kit Cart"
-                android:textColor="#1A202C"
+                android:textColor="@color/textPrimary"
                 android:textSize="18sp"
                 android:textStyle="bold" />
 
@@ -43,7 +43,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="0 Items"
-                android:textColor="#718096"
+                android:textColor="@color/textSecondary"
                 android:textSize="13sp" />
         </LinearLayout>
     </com.google.android.material.appbar.AppBarLayout>
@@ -149,9 +149,9 @@
                 android:layout_marginBottom="24dp"
                 app:cardCornerRadius="16dp"
                 app:cardElevation="2dp"
-                app:strokeColor="#15000000"
+                app:strokeColor="@color/colorGlassBorder"
                 app:strokeWidth="1dp"
-                app:cardBackgroundColor="#FFFFFF">
+                app:cardBackgroundColor="@color/colorSurface">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -163,14 +163,14 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="Bill Details"
-                        android:textColor="#1A202C"
+                        android:textColor="@color/textPrimary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
 
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="#EDF2F7"
+                        android:background="@color/colorGlassBorder"
                         android:layout_marginVertical="12dp" />
 
                     <!-- Item Total -->
@@ -184,7 +184,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="Items Subtotal"
-                            android:textColor="#4A5568"
+                            android:textColor="@color/textSecondary"
                             android:textSize="13sp" />
 
                         <TextView
@@ -192,7 +192,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="₹0"
-                            android:textColor="#1A202C"
+                            android:textColor="@color/textPrimary"
                             android:textSize="13sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -209,7 +209,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="Discreet Packaging"
-                            android:textColor="#4A5568"
+                            android:textColor="@color/textSecondary"
                             android:textSize="13sp" />
 
                         <TextView
@@ -233,7 +233,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="Delivery Fee"
-                            android:textColor="#4A5568"
+                            android:textColor="@color/textSecondary"
                             android:textSize="13sp" />
 
                         <TextView
@@ -241,7 +241,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="₹40"
-                            android:textColor="#1A202C"
+                            android:textColor="@color/textPrimary"
                             android:textSize="13sp"
                             android:textStyle="bold" />
                     </LinearLayout>
@@ -249,7 +249,7 @@
                     <View
                         android:layout_width="match_parent"
                         android:layout_height="1dp"
-                        android:background="#EDF2F7"
+                        android:background="@color/colorGlassBorder"
                         android:layout_marginVertical="12dp" />
 
                     <!-- Total Payable -->
@@ -263,7 +263,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="To Pay"
-                            android:textColor="#1A202C"
+                            android:textColor="@color/textPrimary"
                             android:textSize="15sp"
                             android:textStyle="bold" />
 
@@ -296,14 +296,14 @@
             android:layout_width="80dp"
             android:layout_height="80dp"
             android:src="@drawable/ic_cart"
-            app:tint="#CBD5E0" />
+            app:tint="@color/textHint" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:text="Your Care Kit Cart is Empty"
-            android:textColor="#2D3748"
+            android:textColor="@color/textPrimary"
             android:textSize="18sp"
             android:textStyle="bold" />
 
@@ -313,7 +313,7 @@
             android:layout_marginTop="8dp"
             android:gravity="center"
             android:text="Explore wellness essentials, soothing heat bags, and organic comfort kits."
-            android:textColor="#718096"
+            android:textColor="@color/textSecondary"
             android:textSize="13sp" />
 
         <Button
@@ -336,7 +336,7 @@
         android:layout_gravity="bottom"
         app:cardElevation="10dp"
         app:cardCornerRadius="0dp"
-        app:cardBackgroundColor="#FFFFFF">
+        app:cardBackgroundColor="@color/colorSurface">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -355,7 +355,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Total Amount"
-                    android:textColor="#718096"
+                    android:textColor="@color/textSecondary"
                     android:textSize="11sp" />
 
                 <TextView
@@ -363,7 +363,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="₹0"
-                    android:textColor="#1A202C"
+                    android:textColor="@color/textPrimary"
                     android:textSize="18sp"
                     android:textStyle="bold" />
             </LinearLayout>

@@ -33,6 +33,15 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     private final Context context;
     private final List<ChatMessage> messageList;
     private final String partnerDisplayName;
+    private OnMessageLongClickListener onMessageLongClickListener;
+
+    public interface OnMessageLongClickListener {
+        void onMessageLongClick(ChatMessage message, int position);
+    }
+
+    public void setOnMessageLongClickListener(OnMessageLongClickListener listener) {
+        this.onMessageLongClickListener = listener;
+    }
 
     public ChatAdapter(Context context, List<ChatMessage> messageList, String partnerDisplayName) {
         this.context = context;
@@ -77,6 +86,14 @@ public class ChatAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
     public void onBindViewHolder(@NonNull RecyclerView.ViewHolder holder, int position) {
         ChatMessage msg = messageList.get(position);
         String formattedTime = formatTime(msg.getCreatedAt());
+
+        holder.itemView.setOnLongClickListener(v -> {
+            if (onMessageLongClickListener != null) {
+                onMessageLongClickListener.onMessageLongClick(msg, holder.getAdapterPosition());
+                return true;
+            }
+            return false;
+        });
 
         if (holder instanceof TextMeViewHolder) {
             TextMeViewHolder vh = (TextMeViewHolder) holder;
