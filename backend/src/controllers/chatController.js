@@ -1,4 +1,5 @@
 const pool = require('../config/db');
+const { sendChatPushNotification } = require('../services/notificationService');
 
 // Curated Quick Care Items for In-Chat Assistance
 const QUICK_CARE_ITEMS = [
@@ -385,6 +386,29 @@ const sendMessage = async (req, res, next) => {
       await pool.query(`UPDATE partner_connections SET updated_at = NOW() WHERE id = $1`, [targetConnId]);
     }
 
+    // Trigger FCM / Mobile push notification to recipient
+    if (targetReceiverId) {
+      (async () => {
+        try {
+          const { rows: senderRows } = await pool.query(
+            `SELECT p.display_name, u.email FROM users u LEFT JOIN profiles p ON p.user_id = u.id WHERE u.id = $1`,
+            [senderId]
+          );
+          const sName = (senderRows[0] && senderRows[0].display_name) || (senderRows[0] && senderRows[0].email ? senderRows[0].email.split('@')[0] : 'Partner');
+          await sendChatPushNotification({
+            senderId,
+            senderName: sName,
+            receiverId: targetReceiverId,
+            messageText: content.trim(),
+            connectionId: targetConnId,
+            messageType: message_type || 'TEXT'
+          });
+        } catch (e) {
+          console.error('Chat push notification dispatch error:', e.message);
+        }
+      })();
+    }
+
     res.status(201).json({
       success: true,
       message: { ...mRows[0], is_mine: true }
@@ -477,6 +501,29 @@ const sendCareItem = async (req, res, next) => {
 
     if (targetConnId) {
       await pool.query(`UPDATE partner_connections SET updated_at = NOW() WHERE id = $1`, [targetConnId]);
+    }
+
+    // Trigger FCM / Mobile push notification to recipient
+    if (targetReceiverId) {
+      (async () => {
+        try {
+          const { rows: senderRows } = await pool.query(
+            `SELECT p.display_name, u.email FROM users u LEFT JOIN profiles p ON p.user_id = u.id WHERE u.id = $1`,
+            [senderId]
+          );
+          const sName = (senderRows[0] && senderRows[0].display_name) || (senderRows[0] && senderRows[0].email ? senderRows[0].email.split('@')[0] : 'Partner');
+          await sendChatPushNotification({
+            senderId,
+            senderName: sName,
+            receiverId: targetReceiverId,
+            messageText: content,
+            connectionId: targetConnId,
+            messageType: messageType
+          });
+        } catch (e) {
+          console.error('Care item push notification dispatch error:', e.message);
+        }
+      })();
     }
 
     res.status(201).json({

@@ -252,4 +252,12 @@ public interface ApiService {
 
     @DELETE("chat/connections/{connection_id}")
     Call<Map<String, Object>> deleteCircleConnection(@Path("connection_id") String connectionId);
+
+    // Global Error Monitoring & Crash Reporting
+    @POST("monitoring/errors")
+    Call<Map<String, Object>> reportError(@Body Map<String, Object> body);
+
+    // FCM Device Push Token Registration
+    @POST("notifications/register-token")
+    Call<Map<String, Object>> registerDeviceToken(@Body Map<String, Object> body);
 }

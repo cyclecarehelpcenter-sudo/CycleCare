@@ -74,6 +74,64 @@ async function sendProductCampaignNotification({
   };
 }
 
+async function sendChatPushNotification({
+  senderId,
+  senderName,
+  receiverId,
+  messageText,
+  connectionId,
+  messageType = 'TEXT'
+}) {
+  try {
+    const cleanSender = senderName || 'CycleCare Circle';
+    const cleanText = messageText || 'Sent a new message';
+
+    // 1. Record in notifications table
+    if (receiverId) {
+      await supabase.from('notifications').insert([{
+        user_id: receiverId,
+        title: cleanSender,
+        body: cleanText,
+        type: 'CHAT_MESSAGE',
+        metadata: {
+          connection_id: connectionId,
+          sender_id: senderId,
+          message_type: messageType
+        }
+      }]).catch(() => {});
+    }
+
+    // 2. Query device tokens
+    const pool = require('../config/db');
+    const { rows: tokens } = await pool.query(
+      `SELECT token FROM device_tokens WHERE user_id = $1 AND is_active = true`,
+      [receiverId]
+    ).catch(() => ({ rows: [] }));
+
+    // 3. Dispatch via ADB broadcast for connected phone/emulator
+    try {
+      const adbPath = process.env.ADB_PATH || 'C:\\Users\\abdul\\AppData\\Local\\Android\\Sdk\\platform-tools\\adb.exe';
+      if (fs.existsSync(adbPath)) {
+        const safeName = cleanSender.replace(/"/g, '\\"');
+        const safeText = cleanText.replace(/"/g, '\\"');
+        const cmd = `"${adbPath}" shell am broadcast -a com.cyclecare.ACTION_CHAT_MESSAGE_RECEIVED -p com.cyclecare --es sender_name "${safeName}" --es message_text "${safeText}" --es connection_id "${connectionId || ''}" --es sender_id "${senderId || ''}"`;
+        exec(cmd, (err) => {
+          if (!err) console.log('Dispatched chat notification broadcast to phone');
+        });
+      }
+    } catch (_) {}
+
+    return {
+      success: true,
+      tokenCount: tokens.length
+    };
+  } catch (err) {
+    console.error('Failed to send chat push notification:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
 module.exports = {
-  sendProductCampaignNotification
+  sendProductCampaignNotification,
+  sendChatPushNotification
 };

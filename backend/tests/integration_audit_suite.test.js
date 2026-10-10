@@ -302,4 +302,62 @@ describe('CycleCare System Audit & Integration Suite (Tests A to G)', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  // TEST H: Global Error Monitoring & Crash Incident Lifecycle
+  describe('Test H: Global Error Monitoring & Incident Lifecycle', () => {
+    let testIncidentId = null;
+
+    it('should ingest an Android client error report and persist incident', async () => {
+      const res = await api('/monitoring/errors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'ANDROID',
+          severity: 'CRITICAL',
+          message: 'Integration test: NullPointerException in PeriodLogActivity',
+          stack: 'java.lang.NullPointerException: at PeriodLogActivity.saveLog(PeriodLogActivity.java:120)',
+          device_info: { brand: 'Google', model: 'Pixel 8', sdk: 34 }
+        })
+      });
+      expect(res.status).toBe(201);
+      expect(res.data.success).toBe(true);
+      expect(res.data.incident_id).toBeDefined();
+      testIncidentId = res.data.incident_id;
+    });
+
+    it('should return error statistics including critical and unresolved counts', async () => {
+      const res = await api('/admin/errors/stats', {
+        headers: { 'x-admin-key': ADMIN_KEY }
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.success).toBe(true);
+      expect(res.data.stats).toBeDefined();
+      expect(res.data.stats.total).toBeGreaterThan(0);
+      expect(res.data.stats.unresolved).toBeGreaterThan(0);
+    });
+
+    it('should retrieve incident logs for Admin Control Panel', async () => {
+      const res = await api('/admin/errors', {
+        headers: { 'x-admin-key': ADMIN_KEY }
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.success).toBe(true);
+      expect(Array.isArray(res.data.errors)).toBe(true);
+      const found = res.data.errors.find(e => e.id === testIncidentId);
+      expect(found).toBeDefined();
+      expect(found.source).toBe('ANDROID');
+      expect(found.severity).toBe('CRITICAL');
+      expect(found.resolved).toBe(false);
+    });
+
+    it('should allow admin to resolve the incident', async () => {
+      const res = await api(`/admin/errors/${testIncidentId}/resolve`, {
+        method: 'PATCH',
+        headers: { 'x-admin-key': ADMIN_KEY }
+      });
+      expect(res.status).toBe(200);
+      expect(res.data.success).toBe(true);
+      expect(res.data.incident.resolved).toBe(true);
+    });
+  });
 });

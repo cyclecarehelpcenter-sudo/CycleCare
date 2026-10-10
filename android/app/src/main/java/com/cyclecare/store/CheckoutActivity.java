@@ -55,7 +55,8 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentResult
     private EditText etDeliveryNotes, etCouponCode;
     private RadioGroup rgPaymentMethods;
     private RadioButton rbDemoPayment, rbRazorpay, rbCod;
-    private TextView tvCouponAppliedMsg, tvSubtotal, tvDiscount, tvDeliveryFee, tvGrandTotal, tvFooterTotal;
+    private TextView tvCouponAppliedMsg, tvSubtotal, tvDiscount, tvDeliveryFee, tvGrandTotal, tvFooterTotal, tvItemsCount;
+    private android.widget.LinearLayout layoutItemsList;
     private View layoutDiscountRow;
     private ProgressBar progressBar;
 
@@ -119,6 +120,8 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentResult
         tvDeliveryFee = findViewById(R.id.tv_checkout_delivery_fee);
         tvGrandTotal = findViewById(R.id.tv_checkout_grand_total);
         tvFooterTotal = findViewById(R.id.tv_footer_checkout_total);
+        tvItemsCount = findViewById(R.id.tv_checkout_items_count);
+        layoutItemsList = findViewById(R.id.layout_checkout_items_list);
         layoutDiscountRow = findViewById(R.id.layout_discount_row);
         progressBar = findViewById(R.id.progress_checkout_loading);
     }
@@ -132,6 +135,16 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentResult
             buyNowPrice = intent.getDoubleExtra(EXTRA_BUY_NOW_PRICE, 0);
             buyNowQty = intent.getIntExtra(EXTRA_BUY_NOW_QTY, 1);
             buyNowImage = intent.getStringExtra(EXTRA_BUY_NOW_IMAGE);
+        } else if (intent.hasExtra("cart_items")) {
+            @SuppressWarnings("unchecked")
+            List<CartItem> passedItems = (List<CartItem>) intent.getSerializableExtra("cart_items");
+            if (passedItems != null && !passedItems.isEmpty()) {
+                checkoutCartItems.clear();
+                checkoutCartItems.addAll(passedItems);
+                subtotal = intent.getDoubleExtra("subtotal", 0);
+                deliveryFee = intent.getDoubleExtra("delivery_fee", 40);
+                grandTotal = intent.getDoubleExtra("total", subtotal + deliveryFee);
+            }
         }
     }
 
@@ -189,9 +202,16 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentResult
     private void setupBuyNowData() {
         subtotal = buyNowPrice * buyNowQty;
         recalculateTotals();
+        renderOrderItemsList();
     }
 
     private void loadCartItems() {
+        if (!checkoutCartItems.isEmpty()) {
+            recalculateTotals();
+            renderOrderItemsList();
+            return;
+        }
+
         progressBar.setVisibility(View.VISIBLE);
         ApiClient.getApiService(this).getCart().enqueue(new Callback<Map<String, Object>>() {
             @Override
@@ -206,26 +226,111 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentResult
                     List<CartItem> parsed = gson.fromJson(json, listType);
 
                     checkoutCartItems.clear();
-                    if (parsed != null) checkoutCartItems.addAll(parsed);
-
-                    subtotal = 0;
-                    for (CartItem item : checkoutCartItems) {
-                        subtotal += (item.getUnitPrice() * item.getQuantity());
+                    if (parsed != null && !parsed.isEmpty()) {
+                        checkoutCartItems.addAll(parsed);
+                    } else {
+                        loadLocalCartFallback();
                     }
                     recalculateTotals();
+                    renderOrderItemsList();
+                } else {
+                    loadLocalCartFallback();
+                    recalculateTotals();
+                    renderOrderItemsList();
                 }
             }
 
             @Override
             public void onFailure(Call<Map<String, Object>> call, Throwable t) {
                 progressBar.setVisibility(View.GONE);
-                Toast.makeText(CheckoutActivity.this, "Failed to load cart items", Toast.LENGTH_SHORT).show();
+                loadLocalCartFallback();
+                recalculateTotals();
+                renderOrderItemsList();
             }
         });
     }
 
+    private void loadLocalCartFallback() {
+        if (!checkoutCartItems.isEmpty()) return;
+        try {
+            android.content.SharedPreferences sp = getSharedPreferences("cyclecare_local_cart", MODE_PRIVATE);
+            Map<String, ?> all = sp.getAll();
+            for (Map.Entry<String, ?> entry : all.entrySet()) {
+                if (entry.getKey().startsWith("qty_") && entry.getValue() instanceof Integer) {
+                    int q = (Integer) entry.getValue();
+                    if (q > 0) {
+                        String pId = entry.getKey().substring(4);
+                        String name = sp.getString("name_" + pId, "CycleCare Care Item");
+                        float price = sp.getFloat("price_" + pId, 199.0f);
+                        String img = sp.getString("img_" + pId, "");
+
+                        CartItem item = new CartItem();
+                        item.setId(pId);
+                        item.setProductId(pId);
+                        item.setProductName(name);
+                        item.setUnitPrice(price);
+                        item.setQuantity(q);
+                        item.setImageUrl(img);
+                        item.setItemTotal(price * q);
+                        checkoutCartItems.add(item);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    private void renderOrderItemsList() {
+        if (layoutItemsList == null) return;
+        layoutItemsList.removeAllViews();
+
+        if (isBuyNow) {
+            if (tvItemsCount != null) tvItemsCount.setText(buyNowQty + (buyNowQty == 1 ? " Item" : " Items"));
+            addItemRow(buyNowProductName != null ? buyNowProductName : "Care Item", buyNowQty, buyNowPrice);
+        } else {
+            int totalQ = 0;
+            for (CartItem item : checkoutCartItems) {
+                totalQ += item.getQuantity();
+                addItemRow(item.getProductName() != null ? item.getProductName() : "Care Item", item.getQuantity(), item.getUnitPrice());
+            }
+            if (tvItemsCount != null) tvItemsCount.setText(totalQ + (totalQ == 1 ? " Item" : " Items"));
+        }
+    }
+
+    private void addItemRow(String name, int qty, double unitPrice) {
+        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
+        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+        row.setPadding(0, 8, 0, 8);
+        row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+
+        TextView tvName = new TextView(this);
+        tvName.setLayoutParams(new android.widget.LinearLayout.LayoutParams(0, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, 1.0f));
+        tvName.setText(name + " (x" + qty + ")");
+        tvName.setTextColor(0xFF2D3748);
+        tvName.setTextSize(13);
+        tvName.setTypeface(null, android.graphics.Typeface.BOLD);
+
+        TextView tvPrice = new TextView(this);
+        tvPrice.setLayoutParams(new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT, android.widget.LinearLayout.LayoutParams.WRAP_CONTENT));
+        tvPrice.setText("₹" + (int)(unitPrice * qty));
+        tvPrice.setTextColor(0xFFD81B60);
+        tvPrice.setTextSize(13);
+        tvPrice.setTypeface(null, android.graphics.Typeface.BOLD);
+
+        row.addView(tvName);
+        row.addView(tvPrice);
+        layoutItemsList.addView(row);
+    }
+
     private void recalculateTotals() {
-        deliveryFee = subtotal >= 499 || subtotal == 0 ? 0 : 40;
+        if (isBuyNow) {
+            subtotal = buyNowPrice * buyNowQty;
+        } else {
+            subtotal = 0;
+            for (CartItem item : checkoutCartItems) {
+                subtotal += (item.getUnitPrice() * item.getQuantity());
+            }
+        }
+        deliveryFee = (subtotal >= 499 || subtotal == 0) ? 0 : 40;
         grandTotal = Math.max(0, subtotal - discount + deliveryFee);
 
         tvSubtotal.setText("₹" + (int) subtotal);
@@ -278,18 +383,33 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentResult
         progressBar.setVisibility(View.VISIBLE);
 
         Map<String, Object> orderReq = new HashMap<>();
-        orderReq.put("address_id", selectedAddress.getId());
+        if (selectedAddress != null) {
+            orderReq.put("address_id", selectedAddress.getId());
+        }
         orderReq.put("is_discreet_packaging", cbDiscreetPackaging.isChecked());
         orderReq.put("delivery_notes", etDeliveryNotes.getText().toString().trim());
         if (appliedCoupon != null) orderReq.put("coupon_code", appliedCoupon);
 
+        List<Map<String, Object>> itemsList = new ArrayList<>();
         if (isBuyNow) {
-            List<Map<String, Object>> directItems = new ArrayList<>();
             Map<String, Object> singleItem = new HashMap<>();
             singleItem.put("product_id", buyNowProductId);
             singleItem.put("quantity", buyNowQty);
-            directItems.add(singleItem);
-            orderReq.put("items", directItems);
+            itemsList.add(singleItem);
+        } else {
+            for (CartItem item : checkoutCartItems) {
+                String pId = item.getProductId() != null ? item.getProductId() : item.getId();
+                if (pId != null) {
+                    Map<String, Object> cartItemMap = new HashMap<>();
+                    cartItemMap.put("product_id", pId);
+                    cartItemMap.put("quantity", item.getQuantity() > 0 ? item.getQuantity() : 1);
+                    itemsList.add(cartItemMap);
+                }
+            }
+            orderReq.put("clear_cart", true);
+        }
+        if (!itemsList.isEmpty()) {
+            orderReq.put("items", itemsList);
         }
 
         ApiClient.getApiService(this).createOrder(orderReq).enqueue(new Callback<Map<String, Object>>() {
@@ -431,6 +551,9 @@ public class CheckoutActivity extends AppCompatActivity implements PaymentResult
     }
 
     private void navigateToTracking(String orderId) {
+        try {
+            getSharedPreferences("cyclecare_local_cart", MODE_PRIVATE).edit().clear().apply();
+        } catch (Exception ignored) {}
         Toast.makeText(this, "✓ Order Placed! Discreet courier dispatched.", Toast.LENGTH_SHORT).show();
         Intent intent = new Intent(this, OrderTrackingActivity.class);
         intent.putExtra("order_id", orderId);

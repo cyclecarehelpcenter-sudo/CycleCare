@@ -223,6 +223,10 @@ public class CartActivity extends AppCompatActivity implements CartAdapter.OnCar
     private void proceedToCheckout() {
         if (cartItems.isEmpty()) return;
         Intent intent = new Intent(this, CheckoutActivity.class);
+        intent.putExtra("subtotal", currentSubtotal);
+        intent.putExtra("delivery_fee", currentDeliveryFee);
+        intent.putExtra("total", currentSubtotal + currentDeliveryFee);
+        intent.putExtra("cart_items", new ArrayList<>(cartItems));
         startActivity(intent);
     }
 }

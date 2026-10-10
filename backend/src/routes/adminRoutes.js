@@ -38,8 +38,15 @@ router.delete('/products/:id', adminController.deleteProduct);
 router.get('/orders', adminController.getAdminOrders);
 router.patch('/orders/:id/status', adminController.updateOrderStatus);
 
+const monitoringController = require('../controllers/monitoringController');
+
 router.get('/audit-logs', adminController.getAuditLogs);
 router.get('/deliveries', adminController.getAdminDeliveries);
 router.get('/chat-logs', adminController.getChatLogs);
+
+// Global Error Monitoring Endpoints
+router.get('/errors', monitoringController.getAdminErrors);
+router.get('/errors/stats', monitoringController.getErrorStats);
+router.patch('/errors/:id/resolve', monitoringController.resolveError);
 
 module.exports = router;

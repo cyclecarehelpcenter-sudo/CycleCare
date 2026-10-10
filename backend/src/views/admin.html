@@ -615,6 +615,57 @@
                 </table>
             </div>
         </div>
+
+        <!-- Live Global Error & Incident Monitoring -->
+        <div class="card" style="margin-top: 28px;">
+            <div class="card-title">
+                <span>🚨 Global Error &amp; Incident Monitoring</span>
+                <div>
+                    <button onclick="loadErrors()" style="font-size: 12px; padding: 6px 12px; background: #F1F5F9; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-weight: 600;">🔄 Refresh Incidents</button>
+                </div>
+            </div>
+            <p style="font-size: 12px; color: var(--subtext); margin-top: -10px; margin-bottom: 16px;">
+                Real-time incident tracking across Android client, backend Express APIs, and database transactions with crash diagnosis and resolve actions.
+            </p>
+
+            <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 20px;">
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <h3>Total Logged Errors</h3>
+                    <div class="value" id="statTotalErrors" style="font-size: 24px; color: var(--text);">--</div>
+                </div>
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <h3>Unresolved Incidents</h3>
+                    <div class="value" id="statUnresolvedErrors" style="font-size: 24px; color: var(--danger);">--</div>
+                </div>
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <h3>Critical (Active)</h3>
+                    <div class="value" id="statCriticalErrors" style="font-size: 24px; color: #DC2626;">--</div>
+                </div>
+                <div class="stat-card" style="padding: 14px 18px;">
+                    <h3>Last 24 Hours</h3>
+                    <div class="value" id="stat24hErrors" style="font-size: 24px; color: var(--warning);">--</div>
+                </div>
+            </div>
+
+            <div style="overflow-x: auto;">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Source</th>
+                            <th>Severity</th>
+                            <th>Error Message / Route</th>
+                            <th>Stack / Details</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="errorsTable">
+                        <tr><td colspan="7" style="text-align:center; padding: 20px;">Loading incident logs...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- Publish & Notification Modal -->
@@ -1620,6 +1671,103 @@
             }
         }
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        async function loadErrors() {
+            const tbody = document.getElementById('errorsTable');
+            try {
+                const [statsRes, logsRes] = await Promise.all([
+                    apiFetch('/api/v1/admin/errors/stats').then(r => r.json()).catch(() => null),
+                    apiFetch('/api/v1/admin/errors?limit=30').then(r => r.json()).catch(() => null)
+                ]);
+
+                if (statsRes && statsRes.success && statsRes.stats) {
+                    const st = statsRes.stats;
+                    const elTot = document.getElementById('statTotalErrors');
+                    const elUnr = document.getElementById('statUnresolvedErrors');
+                    const elCrit = document.getElementById('statCriticalErrors');
+                    const el24h = document.getElementById('stat24hErrors');
+                    if (elTot) elTot.innerText = st.total != null ? st.total : '0';
+                    if (elUnr) elUnr.innerText = st.unresolved != null ? st.unresolved : '0';
+                    if (elCrit) elCrit.innerText = st.critical != null ? st.critical : '0';
+                    if (el24h) el24h.innerText = st.last_24h != null ? st.last_24h : '0';
+                }
+
+                if (!tbody) return;
+
+                if (logsRes && logsRes.success && Array.isArray(logsRes.errors)) {
+                    if (logsRes.errors.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 24px; color: #166534; font-weight: 600;">🎉 No error incidents recorded. System running smoothly!</td></tr>`;
+                        return;
+                    }
+
+                    tbody.innerHTML = logsRes.errors.map(err => {
+                        const isResolved = !!err.resolved;
+                        const d = new Date(err.created_at).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' });
+                        
+                        let sevBadge = 'badge-low';
+                        if (err.severity === 'CRITICAL') sevBadge = 'badge-low';
+                        else if (err.severity === 'WARNING') sevBadge = 'badge-draft';
+                        else if (err.severity === 'INFO') sevBadge = 'badge-cat';
+
+                        const srcBadge = err.source === 'ANDROID' 
+                            ? 'background: #F3E8FF; color: #7E22CE; border: 1px solid #D8B4FE;' 
+                            : 'background: #EFF6FF; color: #1E40AF; border: 1px solid #BFDBFE;';
+
+                        const stackSnippet = err.stack ? err.stack.split('\n')[0].substring(0, 80) : (err.metadata ? JSON.stringify(err.metadata).substring(0, 60) : '--');
+
+                        return `
+                            <tr>
+                                <td style="font-size:12px; font-family:monospace; color:var(--subtext); white-space:nowrap;">${d}</td>
+                                <td><span class="badge" style="${srcBadge}">${err.source}</span></td>
+                                <td><span class="badge ${sevBadge}">${err.severity}</span></td>
+                                <td>
+                                    <strong>${escapeHtml(err.message)}</strong>
+                                    ${err.route ? `<div style="font-size:11px; font-family:monospace; color:var(--subtext);">${err.method || ''} ${escapeHtml(err.route)}</div>` : ''}
+                                </td>
+                                <td style="font-size:11px; font-family:monospace; color:#64748B; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(err.stack || '')}">
+                                    ${escapeHtml(stackSnippet)}
+                                </td>
+                                <td>
+                                    <span class="badge ${isResolved ? 'badge-live' : 'badge-low'}">
+                                        ${isResolved ? '✓ Resolved' : '● Unresolved'}
+                                    </span>
+                                </td>
+                                <td>
+                                    ${!isResolved ? `<button class="btn-action-sm" onclick="resolveIncident('${err.id}')" style="background:#DCFCE7; color:#166534; border:1px solid #86EFAC;">Resolve</button>` : `<span style="font-size:11px; color:#166534;">Resolved</span>`}
+                                </td>
+                            </tr>
+                        `;
+                    }).join('');
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ Unable to load incidents <button class="btn-action-sm" onclick="loadErrors()" style="margin-left:8px;">Retry</button></td></tr>`;
+                }
+            } catch (e) {
+                console.error('loadErrors failed', e);
+                if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ Network error loading errors <button class="btn-action-sm" onclick="loadErrors()" style="margin-left:8px;">Retry</button></td></tr>`;
+            }
+        }
+
+        async function resolveIncident(id) {
+            try {
+                const res = await apiFetch('/api/v1/admin/errors/' + id + '/resolve', {
+                    method: 'PATCH'
+                });
+                const data = await res.json();
+                if (data.success) {
+                    showToast('Incident marked as resolved!', 'success');
+                    loadErrors();
+                } else {
+                    showToast('Failed to resolve: ' + data.message, 'error');
+                }
+            } catch (e) {
+                showToast('Failed to resolve incident', 'error');
+            }
+        }
+
         async function loadAll() {
             setConnectionStatus('connecting');
             const results = await Promise.allSettled([
@@ -1628,7 +1776,8 @@
                 loadDeliveries(),
                 loadOrders(),
                 loadUsers(),
-                loadChatLogs()
+                loadChatLogs(),
+                loadErrors()
             ]);
             const statsOk = results[0].status === 'fulfilled' && results[0].value === true;
             if (statsOk) {

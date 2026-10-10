@@ -19,28 +19,50 @@ const createOrder = async (req, res, next) => {
 
     if (!targetAddressId) {
       if (!address || !address.address_line || !address.pincode) {
-        return res.status(400).json({ success: false, message: 'Valid delivery address or address_id is required' });
+        // Fallback: Check if user has an existing default or saved address in database
+        const { data: defaultAddr } = await supabase
+          .from('addresses')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_default', true)
+          .maybeSingle();
+
+        if (defaultAddr && defaultAddr.id) {
+          targetAddressId = defaultAddr.id;
+        } else {
+          const { data: anyAddr } = await supabase
+            .from('addresses')
+            .select('id')
+            .eq('user_id', userId)
+            .limit(1);
+
+          if (anyAddr && anyAddr.length > 0) {
+            targetAddressId = anyAddr[0].id;
+          } else {
+            return res.status(400).json({ success: false, message: 'Valid delivery address or address_id is required' });
+          }
+        }
+      } else {
+        // Save new address
+        const { data: savedAddress, error: addrError } = await supabase
+          .from('addresses')
+          .insert([{
+            user_id: userId,
+            name: address.name,
+            phone: address.phone,
+            address_line: address.address_line,
+            landmark: address.landmark || null,
+            city: address.city,
+            state: address.state,
+            pincode: address.pincode,
+            type: address.type || 'HOME'
+          }])
+          .select()
+          .single();
+
+        if (addrError) throw addrError;
+        targetAddressId = savedAddress.id;
       }
-
-      // Save new address
-      const { data: savedAddress, error: addrError } = await supabase
-        .from('addresses')
-        .insert([{
-          user_id: userId,
-          name: address.name,
-          phone: address.phone,
-          address_line: address.address_line,
-          landmark: address.landmark || null,
-          city: address.city,
-          state: address.state,
-          pincode: address.pincode,
-          type: address.type || 'HOME'
-        }])
-        .select()
-        .single();
-
-      if (addrError) throw addrError;
-      targetAddressId = savedAddress.id;
     }
 
     // Determine checkout items: either direct items (Buy Now) or Cart items
@@ -157,9 +179,16 @@ const createOrder = async (req, res, next) => {
     const itemsToInsert = orderItemSnapshots.map(i => ({ ...i, order_id: order.id }));
     await supabase.from('order_items').insert(itemsToInsert);
 
-    // Clear cart if ordered from cart
-    if (!isDirectCheckout && userCart) {
-      await supabase.from('cart_items').delete().eq('cart_id', userCart.id);
+    // Clear cart if ordered from cart or if client requested clear_cart
+    if (req.body.clear_cart || !isDirectCheckout) {
+      if (userCart && userCart.id) {
+        await supabase.from('cart_items').delete().eq('cart_id', userCart.id);
+      } else {
+        const { data: c } = await supabase.from('cart').select('id').eq('user_id', userId).maybeSingle();
+        if (c && c.id) {
+          await supabase.from('cart_items').delete().eq('cart_id', c.id);
+        }
+      }
     }
 
     res.status(201).json({

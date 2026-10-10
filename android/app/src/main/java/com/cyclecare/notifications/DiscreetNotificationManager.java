@@ -157,4 +157,51 @@ public class DiscreetNotificationManager {
             manager.notify((int) System.currentTimeMillis(), builder.build());
         }
     }
+
+    public void showChatNotification(String senderName, String messageContent, String connectionId, String senderId) {
+        Bitmap largeIcon = BitmapFactory.decodeResource(context.getResources(), R.mipmap.ic_launcher);
+
+        Intent intent = new Intent(context, com.cyclecare.chat.CircleChatActivity.class);
+        if (connectionId != null && !connectionId.isEmpty()) {
+            intent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_CONNECTION_ID, connectionId);
+        }
+        if (senderName != null && !senderName.isEmpty()) {
+            intent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_CONTACT_NAME, senderName);
+        }
+        if (senderId != null && !senderId.isEmpty()) {
+            intent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_PARTNER_USER_ID, senderId);
+        }
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+
+        int flags = PendingIntent.FLAG_UPDATE_CURRENT;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            flags |= PendingIntent.FLAG_IMMUTABLE;
+        }
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                context,
+                (int) System.currentTimeMillis(),
+                intent,
+                flags
+        );
+
+        String displayTitle = (senderName != null && !senderName.isEmpty()) ? "💬 " + senderName : "💬 Circle Message";
+        String displayText = (messageContent != null && !messageContent.isEmpty()) ? messageContent : "Sent you a message";
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_cyclecare_logo)
+                .setLargeIcon(largeIcon)
+                .setColor(BRAND_COLOR)
+                .setContentTitle(displayTitle)
+                .setContentText(displayText)
+                .setContentIntent(pendingIntent)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(displayText))
+                .setAutoCancel(true);
+
+        NotificationManager manager = (NotificationManager) context.getSystemService(Context.NOTIFICATION_SERVICE);
+        if (manager != null) {
+            manager.notify((int) System.currentTimeMillis(), builder.build());
+        }
+    }
 }

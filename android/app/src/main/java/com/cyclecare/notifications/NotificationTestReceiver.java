@@ -24,6 +24,15 @@ public class NotificationTestReceiver extends BroadcastReceiver {
             return;
         }
 
+        if ("com.cyclecare.ACTION_CHAT_MESSAGE_RECEIVED".equals(action)) {
+            String senderName = intent.getStringExtra("sender_name");
+            String messageText = intent.getStringExtra("message_text");
+            String connectionId = intent.getStringExtra("connection_id");
+            String senderId = intent.getStringExtra("sender_id");
+            manager.showChatNotification(senderName, messageText, connectionId, senderId);
+            return;
+        }
+
         String title = intent.getStringExtra("title");
         String body = intent.getStringExtra("body");
         if (title == null) title = "CycleCare Reminder";

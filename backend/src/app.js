@@ -22,6 +22,7 @@ const partnerRoutes = require('./routes/partnerRoutes');
 const deliveryRoutes = require('./routes/deliveryRoutes');
 const addressesRoutes = require('./routes/addressesRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const monitoringRoutes = require('./routes/monitoringRoutes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -79,6 +80,8 @@ app.use('/api/v1/deliveries', deliveryRoutes);
 app.use('/api/v1/delivery', deliveryRoutes);
 app.use('/api/v1/addresses', addressesRoutes);
 app.use('/api/v1/chat', chatRoutes);
+app.use('/api/v1/monitoring', monitoringRoutes);
+app.use('/api/v1/notifications', monitoringRoutes);
 
 // Healthcheck Endpoint
 app.get('/api/v1/health', (req, res) => {
