@@ -87,14 +87,18 @@ public class CircleChatActivity extends AppCompatActivity {
             partnerUserId = getIntent().getStringExtra(EXTRA_PARTNER_USER_ID);
         }
 
-        // Check locally saved tag
-        android.content.SharedPreferences prefs = getSharedPreferences("cyclecare_contact_tags", MODE_PRIVATE);
-        String cachedTag = null;
-        if (connectionId != null) cachedTag = prefs.getString("tag_" + connectionId, null);
-        if (cachedTag == null && partnerUserId != null) cachedTag = prefs.getString("tag_" + partnerUserId, null);
-        if (cachedTag == null && contactName != null) cachedTag = prefs.getString("tag_" + contactName.toLowerCase().trim(), null);
-        if (cachedTag != null) {
-            relationship = cachedTag;
+        // Check locally saved tag only as fallback if relationship is not provided by backend/intent
+        if (relationship == null || relationship.trim().isEmpty() || "null".equalsIgnoreCase(relationship)) {
+            android.content.SharedPreferences prefs = getSharedPreferences("cyclecare_contact_tags", MODE_PRIVATE);
+            String cachedTag = null;
+            if (connectionId != null) cachedTag = prefs.getString("tag_" + connectionId, null);
+            if (cachedTag == null && partnerUserId != null) cachedTag = prefs.getString("tag_" + partnerUserId, null);
+            if (cachedTag == null && contactName != null) cachedTag = prefs.getString("tag_" + contactName.toLowerCase().trim(), null);
+            if (cachedTag != null) {
+                relationship = cachedTag;
+            } else {
+                relationship = "Partner";
+            }
         }
 
         initViews();
@@ -146,15 +150,10 @@ public class CircleChatActivity extends AppCompatActivity {
                                 if (contactName == null || contactName.isEmpty() || contactName.equalsIgnoreCase("Partner")) {
                                     contactName = target.getDisplayName().replaceAll("(?i)\\s*\\((Husband|Girl|Partner|User|Male|Female)\\)", "").trim();
                                 }
-                                relationship = target.getRelationship();
+                                if (target.getRelationship() != null && !target.getRelationship().isEmpty() && !"null".equalsIgnoreCase(target.getRelationship())) {
+                                    relationship = target.getRelationship();
+                                }
                                 partnerUserId = target.getUserId();
-
-                                // Recheck locally saved tag
-                                android.content.SharedPreferences p = getSharedPreferences("cyclecare_contact_tags", MODE_PRIVATE);
-                                String cTag = p.getString("tag_" + connectionId, null);
-                                if (cTag == null && partnerUserId != null) cTag = p.getString("tag_" + partnerUserId, null);
-                                if (cTag == null && contactName != null) cTag = p.getString("tag_" + contactName.toLowerCase().trim(), null);
-                                if (cTag != null) relationship = cTag;
 
                                 updateHeaderUI();
                                 loadMessages();
@@ -242,28 +241,19 @@ public class CircleChatActivity extends AppCompatActivity {
 
     private void showChangeTagDialog() {
         final String[] tagOptions = new String[]{
-                "Husband ❤️", "Wife 🌸", "Best Friend 💕", "Sister 🌷", "Mother 👵", "Partner 💍", "Doctor 🩺", "Brother 👦", "Friend ✨"
+                "Husband", "Wife", "Boyfriend", "Girlfriend",
+                "Father", "Mother", "Daughter", "Son",
+                "Sister", "Brother", "Best Friend", "Partner", "Family", "Other"
         };
         new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("🏷️ Set Relationship Tag for " + contactName)
+                .setTitle("Set Relationship Tag for " + contactName)
                 .setItems(tagOptions, (dialog, which) -> {
                     String selected = tagOptions[which];
                     relationship = selected;
                     updateHeaderUI();
                     setResult(RESULT_OK);
 
-                    // 1. Immediately persist locally in SharedPreferences
-                    android.content.SharedPreferences prefs = getSharedPreferences("cyclecare_contact_tags", MODE_PRIVATE);
-                    android.content.SharedPreferences.Editor editor = prefs.edit();
-                    if (connectionId != null) editor.putString("tag_" + connectionId, selected);
-                    if (partnerUserId != null) editor.putString("tag_" + partnerUserId, selected);
-                    if (contactName != null) {
-                        String clean = contactName.replaceAll("(?i)\\s*\\((Husband|Girl|Partner|User|Male|Female)\\)", "").trim();
-                        editor.putString("tag_" + clean.toLowerCase(), selected);
-                    }
-                    editor.apply();
-
-                    // 2. Persist to database via API
+                    // 1. Persist to database via API
                     Map<String, String> body = new HashMap<>();
                     if (connectionId != null) body.put("connection_id", connectionId);
                     if (partnerUserId != null) body.put("target_user_id", partnerUserId);
@@ -273,7 +263,29 @@ public class CircleChatActivity extends AppCompatActivity {
                     apiService.setContactTag(body).enqueue(new Callback<Map<String, Object>>() {
                         @Override
                         public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
-                            Toast.makeText(CircleChatActivity.this, "✓ Tag updated: " + selected, Toast.LENGTH_SHORT).show();
+                            if (response.isSuccessful() && response.body() != null) {
+                                Object relObj = response.body().get("relationship");
+                                Object recipObj = response.body().get("reciprocal_relationship");
+                                if (relObj != null) {
+                                    relationship = String.valueOf(relObj);
+                                    updateHeaderUI();
+                                }
+
+                                // Update local cache with authoritative backend value
+                                android.content.SharedPreferences prefs = getSharedPreferences("cyclecare_contact_tags", MODE_PRIVATE);
+                                android.content.SharedPreferences.Editor editor = prefs.edit();
+                                if (connectionId != null) editor.putString("tag_" + connectionId, relationship);
+                                if (partnerUserId != null) editor.putString("tag_" + partnerUserId, relationship);
+                                editor.apply();
+
+                                String msg = "Relationship updated: " + relationship;
+                                if (recipObj != null) {
+                                    msg += " (Reciprocal: " + recipObj + ")";
+                                }
+                                Toast.makeText(CircleChatActivity.this, msg, Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(CircleChatActivity.this, "Relationship tag updated: " + selected, Toast.LENGTH_SHORT).show();
+                            }
                         }
 
                         @Override

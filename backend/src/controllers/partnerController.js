@@ -2,6 +2,37 @@ const supabase = require('../config/supabase');
 const pool = require('../config/db');
 const crypto = require('crypto');
 const { sendProductCampaignNotification } = require('../services/notificationService');
+const {
+  determineReciprocal,
+  normalizeRelationshipTag,
+  validateCompatibility,
+  getAmbiguityOptions
+} = require('../services/relationshipMappingService');
+
+/**
+ * Fetch gender and usage_mode demographics for a user
+ */
+async function getUserDemographics(userId) {
+  if (!userId) return { gender: null, usage_mode: null };
+  try {
+    const res = await pool.query(
+      `SELECT u.gender AS user_gender, u.usage_mode, p.gender AS profile_gender
+       FROM users u
+       LEFT JOIN profiles p ON p.user_id = u.id
+       WHERE u.id = $1 LIMIT 1`,
+      [userId]
+    );
+    if (res.rows.length === 0) return { gender: null, usage_mode: null };
+    const row = res.rows[0];
+    return {
+      gender: row.profile_gender || row.user_gender || null,
+      usage_mode: row.usage_mode || null
+    };
+  } catch (err) {
+    console.error('Error in getUserDemographics:', err);
+    return { gender: null, usage_mode: null };
+  }
+}
 
 const ALL_PERMISSION_TYPES = [
   'CYCLE_PHASE',
@@ -252,10 +283,45 @@ const sendConnectionRequest = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Cannot connect to your own account' });
     }
 
-    const cleanRel = relationship || requester_relationship || 'Partner';
-    const cleanRequesterRel = requester_relationship || cleanRel;
-    const cleanRecipientRel = recipient_relationship || 'Partner';
+    const actorDemo = await getUserDemographics(requesterId);
+    const targetDemo = await getUserDemographics(recipient_id);
+
+    let cleanRequesterRel = 'Partner';
+    let cleanRecipientRel = 'Partner';
+    let cleanRel = 'Partner';
     const cleanCustom = (custom_label || '').trim();
+
+    try {
+      const tagToAssign = relationship || requester_relationship || 'Partner';
+      let explicitTargetReciprocal = recipient_relationship;
+      if (requester_relationship && relationship && normalizeRelationshipTag(requester_relationship) !== normalizeRelationshipTag(relationship)) {
+        if (validateCompatibility(relationship, requester_relationship).valid) {
+          explicitTargetReciprocal = requester_relationship;
+        }
+      }
+
+      const mapping = determineReciprocal({
+        assignedTag: tagToAssign,
+        actorGender: actorDemo.gender,
+        actorUsageMode: actorDemo.usage_mode,
+        targetGender: targetDemo.gender,
+        targetUsageMode: targetDemo.usage_mode,
+        explicitReciprocal: explicitTargetReciprocal
+      });
+      cleanRequesterRel = mapping.assigned;
+      cleanRecipientRel = mapping.reciprocal;
+      cleanRel = mapping.assigned;
+    } catch (err) {
+      if (err.code === 'INCOMPATIBLE_RELATIONSHIP' || err.code === 'RECIPROCAL_RELATIONSHIP_AMBIGUOUS') {
+        return res.status(err.statusCode || 400).json({
+          success: false,
+          error: err.code,
+          message: err.message,
+          options: err.options || []
+        });
+      }
+      throw err;
+    }
 
     // Check existing connection pair
     const checkRes = await pool.query(
@@ -464,7 +530,25 @@ const acceptRequest = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Only the recipient can accept this request' });
     }
 
-    const cleanRel = reciprocal_relationship || conn.relationship || 'Partner';
+    let cleanRel = conn.recipient_relationship || 'Partner';
+    if (reciprocal_relationship) {
+      const compat = validateCompatibility(conn.requester_relationship || conn.relationship || 'Partner', reciprocal_relationship);
+      if (!compat.valid) {
+        return res.status(400).json({ success: false, message: compat.reason });
+      }
+      cleanRel = normalizeRelationshipTag(reciprocal_relationship);
+    } else if (!cleanRel || cleanRel === 'Partner') {
+      const recipientDemo = await getUserDemographics(userId);
+      const requesterDemo = await getUserDemographics(conn.requester_id);
+      const derived = determineReciprocal({
+        assignedTag: conn.requester_relationship || conn.relationship || 'Partner',
+        actorGender: requesterDemo.gender,
+        actorUsageMode: requesterDemo.usage_mode,
+        targetGender: recipientDemo.gender,
+        targetUsageMode: recipientDemo.usage_mode
+      });
+      cleanRel = derived.reciprocal;
+    }
     const cleanCustom = (custom_label || '').trim();
 
     const updateRes = await pool.query(
@@ -647,12 +731,12 @@ const blockPartner = async (req, res, next) => {
   }
 };
 
-// 10. Update Relationship Perspective
+// 10. Update Relationship Perspective (Bidirectional Reciprocal Persistence)
 const updateRelationship = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const connectionId = req.params.connectionId;
-    const { relationship, custom_label } = req.body;
+    const { relationship, custom_label, reciprocal_relationship } = req.body;
 
     if (!relationship && !custom_label) {
       return res.status(400).json({ success: false, message: 'relationship or custom_label is required' });
@@ -671,23 +755,54 @@ const updateRelationship = async (req, res, next) => {
 
     const isRequester = conn.requester_id === userId;
     const otherUserId = isRequester ? conn.recipient_id : conn.requester_id;
-    const cleanRel = relationship || 'Partner';
+
+    const actorDemo = await getUserDemographics(userId);
+    const targetDemo = await getUserDemographics(otherUserId);
+
+    const rawTag = relationship || custom_label || 'Partner';
+    let mapping;
+    try {
+      mapping = determineReciprocal({
+        assignedTag: rawTag,
+        actorGender: actorDemo.gender,
+        actorUsageMode: actorDemo.usage_mode,
+        targetGender: targetDemo.gender,
+        targetUsageMode: targetDemo.usage_mode,
+        explicitReciprocal: reciprocal_relationship
+      });
+    } catch (err) {
+      if (err.code === 'INCOMPATIBLE_RELATIONSHIP' || err.code === 'RECIPROCAL_RELATIONSHIP_AMBIGUOUS') {
+        return res.status(err.statusCode || 400).json({
+          success: false,
+          error: err.code,
+          message: err.message,
+          options: err.options || []
+        });
+      }
+      throw err;
+    }
+
+    const cleanAssigned = mapping.assigned;
+    const cleanReciprocal = mapping.reciprocal;
     const cleanCustom = (custom_label || '').trim();
 
     if (isRequester) {
       await pool.query(
         `UPDATE partner_connections 
-         SET requester_relationship = $1, requester_custom_label = $2,
-             relationship = $1, custom_relationship_label = $2, updated_at = NOW()
-         WHERE id = $3`,
-        [cleanRel, cleanCustom, connectionId]
+         SET requester_relationship = $1, recipient_relationship = $2,
+             requester_custom_label = $3,
+             relationship = $1, custom_relationship_label = $3, updated_at = NOW()
+         WHERE id = $4`,
+        [cleanAssigned, cleanReciprocal, cleanCustom || null, connectionId]
       );
     } else {
       await pool.query(
         `UPDATE partner_connections 
-         SET recipient_relationship = $1, recipient_custom_label = $2, updated_at = NOW()
-         WHERE id = $3`,
-        [cleanRel, cleanCustom, connectionId]
+         SET recipient_relationship = $1, requester_relationship = $2,
+             recipient_custom_label = $3,
+             relationship = $2, updated_at = NOW()
+         WHERE id = $4`,
+        [cleanAssigned, cleanReciprocal, cleanCustom || null, connectionId]
       );
     }
 
@@ -695,13 +810,18 @@ const updateRelationship = async (req, res, next) => {
     await pool.query(
       `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id, metadata)
        VALUES ($1, $2, 'RELATIONSHIP_UPDATED', $3, $4)`,
-      [connectionId, userId, otherUserId, JSON.stringify({ relationship: cleanRel, custom_label: cleanCustom })]
+      [connectionId, userId, otherUserId, JSON.stringify({
+        assigned: cleanAssigned,
+        reciprocal: cleanReciprocal,
+        custom_label: cleanCustom
+      })]
     );
 
     res.json({
       success: true,
-      message: `Relationship updated to "${cleanCustom || cleanRel}"`,
-      relationship: cleanRel,
+      message: `Relationship updated to "${cleanCustom || cleanAssigned}" (reciprocal: "${cleanReciprocal}")`,
+      relationship: cleanAssigned,
+      reciprocal_relationship: cleanReciprocal,
       custom_label: cleanCustom
     });
   } catch (err) {

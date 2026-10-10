@@ -129,29 +129,18 @@ public class CircleConversationsActivity extends AppCompatActivity {
 
     private void showChangeTagDialog(CircleContact contact, int position) {
         final String[] tagOptions = new String[]{
-                "Husband ❤️", "Wife 🌸", "Best Friend 💕", "Sister 🌷", "Mother 👵", "Partner 💍", "Doctor 🩺", "Brother 👦", "Friend ✨"
+                "Husband", "Wife", "Boyfriend", "Girlfriend",
+                "Father", "Mother", "Daughter", "Son",
+                "Sister", "Brother", "Best Friend", "Partner", "Family", "Other"
         };
         new AlertDialog.Builder(this)
-                .setTitle("🏷️ Set Tag for " + contact.getDisplayName())
+                .setTitle("Set Tag for " + contact.getDisplayName())
                 .setItems(tagOptions, (d, which) -> {
                     String selected = tagOptions[which];
                     contact.setRelationship(selected);
-
-                    // 1. Save to SharedPreferences immediately
-                    SharedPreferences prefs = getSharedPreferences("cyclecare_contact_tags", Context.MODE_PRIVATE);
-                    SharedPreferences.Editor editor = prefs.edit();
-                    if (contact.getConnectionId() != null) editor.putString("tag_" + contact.getConnectionId(), selected);
-                    if (contact.getUserId() != null) editor.putString("tag_" + contact.getUserId(), selected);
-                    if (contact.getDisplayName() != null) {
-                        String clean = contact.getDisplayName().replaceAll("(?i)\\s*\\((Husband|Girl|Partner|User|Male|Female)\\)", "").trim();
-                        editor.putString("tag_" + clean.toLowerCase(), selected);
-                    }
-                    editor.apply();
-
-                    // 2. Refresh adapter item
                     adapter.notifyItemChanged(position);
 
-                    // 3. API update
+                    // API update
                     Map<String, String> body = new HashMap<>();
                     if (contact.getConnectionId() != null) body.put("connection_id", contact.getConnectionId());
                     if (contact.getUserId() != null) body.put("target_user_id", contact.getUserId());
@@ -161,7 +150,28 @@ public class CircleConversationsActivity extends AppCompatActivity {
                     apiService.setContactTag(body).enqueue(new Callback<Map<String, Object>>() {
                         @Override
                         public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
-                            Toast.makeText(CircleConversationsActivity.this, "✓ Relationship tag set: " + selected, Toast.LENGTH_SHORT).show();
+                            if (response.isSuccessful() && response.body() != null) {
+                                Object relObj = response.body().get("relationship");
+                                Object recipObj = response.body().get("reciprocal_relationship");
+                                if (relObj != null) {
+                                    contact.setRelationship(String.valueOf(relObj));
+                                    adapter.notifyItemChanged(position);
+                                }
+
+                                SharedPreferences prefs = getSharedPreferences("cyclecare_contact_tags", Context.MODE_PRIVATE);
+                                SharedPreferences.Editor editor = prefs.edit();
+                                if (contact.getConnectionId() != null) editor.putString("tag_" + contact.getConnectionId(), contact.getRelationship());
+                                if (contact.getUserId() != null) editor.putString("tag_" + contact.getUserId(), contact.getRelationship());
+                                editor.apply();
+
+                                String msg = "Relationship tag set: " + contact.getRelationship();
+                                if (recipObj != null) {
+                                    msg += " (Reciprocal: " + recipObj + ")";
+                                }
+                                Toast.makeText(CircleConversationsActivity.this, msg, Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(CircleConversationsActivity.this, "Relationship tag set: " + selected, Toast.LENGTH_SHORT).show();
+                            }
                         }
 
                         @Override
@@ -247,14 +257,14 @@ public class CircleConversationsActivity extends AppCompatActivity {
                         if (fetched != null) {
                             SharedPreferences prefs = getSharedPreferences("cyclecare_contact_tags", Context.MODE_PRIVATE);
                             for (CircleContact c : fetched) {
-                                String saved = prefs.getString("tag_" + c.getConnectionId(), null);
-                                if (saved == null && c.getUserId() != null) saved = prefs.getString("tag_" + c.getUserId(), null);
-                                if (saved == null && c.getDisplayName() != null) {
-                                    String clean = c.getDisplayName().replaceAll("(?i)\\s*\\((Husband|Girl|Partner|User|Male|Female)\\)", "").trim();
-                                    saved = prefs.getString("tag_" + clean.toLowerCase(), null);
-                                }
-                                if (saved != null) {
-                                    c.setRelationship(saved);
+                                if (c.getRelationship() == null || c.getRelationship().isEmpty() || "null".equalsIgnoreCase(c.getRelationship())) {
+                                    String saved = prefs.getString("tag_" + c.getConnectionId(), null);
+                                    if (saved == null && c.getUserId() != null) saved = prefs.getString("tag_" + c.getUserId(), null);
+                                    if (saved != null) {
+                                        c.setRelationship(saved);
+                                    } else {
+                                        c.setRelationship("Partner");
+                                    }
                                 }
                             }
                             contactList.clear();

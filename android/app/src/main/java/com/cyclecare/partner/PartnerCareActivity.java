@@ -546,8 +546,13 @@ public class PartnerCareActivity extends AppCompatActivity {
                     apiService.updatePartnerRelationship(connId, body).enqueue(new Callback<Map<String, Object>>() {
                         @Override
                         public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
-                            if (response.isSuccessful()) {
-                                Toast.makeText(PartnerCareActivity.this, "Relationship updated to " + selected, Toast.LENGTH_SHORT).show();
+                            if (response.isSuccessful() && response.body() != null) {
+                                Object recipObj = response.body().get("reciprocal_relationship");
+                                String msg = "Relationship updated to " + selected;
+                                if (recipObj != null) {
+                                    msg += " (Reciprocal: " + recipObj + ")";
+                                }
+                                Toast.makeText(PartnerCareActivity.this, msg, Toast.LENGTH_SHORT).show();
                                 loadPartnerData();
                             } else {
                                 Toast.makeText(PartnerCareActivity.this, "Failed to update relationship", Toast.LENGTH_SHORT).show();

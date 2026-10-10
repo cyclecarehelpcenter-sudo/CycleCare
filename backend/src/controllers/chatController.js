@@ -1,5 +1,47 @@
 const pool = require('../config/db');
 const { sendChatPushNotification } = require('../services/notificationService');
+const {
+  determineReciprocal,
+  normalizeRelationshipTag,
+  validateCompatibility,
+  getAmbiguityOptions
+} = require('../services/relationshipMappingService');
+
+/**
+ * Fetch gender and usage_mode demographics for a user
+ */
+async function getUserDemographics(userId) {
+  if (!userId) return { gender: null, usage_mode: null };
+  try {
+    const res = await pool.query(
+      `SELECT u.gender AS user_gender, u.usage_mode, p.gender AS profile_gender
+       FROM users u
+       LEFT JOIN profiles p ON p.user_id = u.id
+       WHERE u.id = $1 LIMIT 1`,
+      [userId]
+    );
+    if (res.rows.length === 0) return { gender: null, usage_mode: null };
+    const row = res.rows[0];
+    return {
+      gender: row.profile_gender || row.user_gender || null,
+      usage_mode: row.usage_mode || null
+    };
+  } catch (err) {
+    return { gender: null, usage_mode: null };
+  }
+}
+
+/**
+ * Perspective-aware relationship label resolution
+ */
+function resolveRelationshipForUser(conn, userId) {
+  const isRequester = conn.requester_id === userId;
+  if (isRequester) {
+    return conn.requester_custom_label || conn.requester_relationship || conn.custom_relationship_label || conn.relationship || 'Partner';
+  } else {
+    return conn.recipient_custom_label || conn.recipient_relationship || conn.custom_relationship_label || conn.relationship || 'Partner';
+  }
+}
 
 // Curated Quick Care Items for In-Chat Assistance
 const QUICK_CARE_ITEMS = [
@@ -90,7 +132,9 @@ const getContacts = async (req, res, next) => {
 
     // 1. Fetch active partner connections for userId
     const { rows: connections } = await pool.query(
-      `SELECT pc.id, pc.requester_id, pc.recipient_id, pc.relationship, pc.custom_relationship_label, pc.status, pc.created_at, pc.updated_at,
+      `SELECT pc.id, pc.requester_id, pc.recipient_id, pc.relationship, pc.custom_relationship_label,
+              pc.requester_relationship, pc.recipient_relationship, pc.requester_custom_label, pc.recipient_custom_label,
+              pc.status, pc.created_at, pc.updated_at,
               u1.email as req_email, u1.cyclecare_id as req_cyclecare_id, p1.display_name as req_name,
               u2.email as rec_email, u2.cyclecare_id as rec_cyclecare_id, p2.display_name as rec_name
        FROM partner_connections pc
@@ -138,7 +182,7 @@ const getContacts = async (req, res, next) => {
 
       const rawDisplayName = otherName || (otherEmail ? otherEmail.split('@')[0] : 'Partner');
       const displayName = cleanName(rawDisplayName);
-      const relationshipTag = c.custom_relationship_label || c.relationship || 'Partner';
+      const relationshipTag = resolveRelationshipForUser(c, userId);
 
       contacts.push({
         connection_id: c.id,
@@ -146,6 +190,7 @@ const getContacts = async (req, res, next) => {
         display_name: displayName,
         cyclecare_id: otherCyclecareId ? `@${otherCyclecareId}` : `@${displayName.toLowerCase().replace(/\s+/g, '_')}`,
         relationship: relationshipTag,
+        resolved_relationship: relationshipTag,
         last_message: latestMsg ? latestMsg.content : 'Start a caring conversation...',
         last_message_type: latestMsg ? latestMsg.message_type : 'TEXT',
         last_message_time: latestMsg ? latestMsg.created_at : c.created_at,
@@ -535,54 +580,46 @@ const sendCareItem = async (req, res, next) => {
   }
 };
 
-// 5. Set custom relationship tag for a contact (e.g. Husband, Wife, Sister, Best Friend, Doctor)
+// 5. Set custom relationship tag for a contact (Bidirectional Reciprocal Persistence)
 const setContactTag = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const { connection_id, target_user_id, target_name, tag } = req.body;
+    const { connection_id, target_user_id, target_name, tag, reciprocal_relationship } = req.body;
 
     if (!tag || !tag.trim()) {
       return res.status(400).json({ success: false, message: 'tag is required' });
     }
 
     const cleanTag = tag.trim();
-    const cleanRel = mapToValidRelationship(cleanTag);
-    let updated = false;
 
-    // 1. If connection_id provided and valid UUID
+    // 1. Resolve target connection and target user ID
+    let conn = null;
+    let targetUserId = (target_user_id && isValidUuid(target_user_id)) ? target_user_id : null;
+
     if (connection_id && isValidUuid(connection_id)) {
-      const result = await pool.query(
-        `UPDATE partner_connections 
-         SET custom_relationship_label = $1, relationship = $2, updated_at = NOW() 
-         WHERE id = $3`,
-        [cleanTag, cleanRel, connection_id]
+      const { rows } = await pool.query(
+        `SELECT * FROM partner_connections 
+         WHERE id = $1 AND (requester_id = $2 OR recipient_id = $2)`,
+        [connection_id, userId]
       );
-      if (result.rowCount > 0) updated = true;
-    }
-
-    // 2. If target_user_id provided and valid UUID
-    if (!updated && target_user_id && isValidUuid(target_user_id)) {
-      const result = await pool.query(
-        `UPDATE partner_connections 
-         SET custom_relationship_label = $1, relationship = $2, updated_at = NOW() 
-         WHERE (requester_id = $3 AND recipient_id = $4) OR (requester_id = $4 AND recipient_id = $3)`,
-        [cleanTag, cleanRel, userId, target_user_id]
-      );
-      if (result.rowCount > 0) {
-        updated = true;
-      } else {
-        // Create connection if none exists yet
-        await pool.query(
-          `INSERT INTO partner_connections (requester_id, recipient_id, relationship, custom_relationship_label, status, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, 'ACCEPTED', NOW(), NOW())`,
-          [userId, target_user_id, cleanRel, cleanTag]
-        );
-        updated = true;
+      if (rows.length > 0) {
+        conn = rows[0];
+        targetUserId = conn.requester_id === userId ? conn.recipient_id : conn.requester_id;
       }
     }
 
-    // 3. Fallback: match by target_name if provided and still not updated
-    if (!updated && target_name && target_name.trim().length > 0) {
+    if (!conn && targetUserId) {
+      const { rows } = await pool.query(
+        `SELECT * FROM partner_connections 
+         WHERE (requester_id = $1 AND recipient_id = $2) OR (requester_id = $2 AND recipient_id = $1)`,
+        [userId, targetUserId]
+      );
+      if (rows.length > 0) {
+        conn = rows[0];
+      }
+    }
+
+    if (!conn && !targetUserId && target_name && target_name.trim().length > 0) {
       const cleanTargetName = cleanName(target_name.trim());
       const { rows: matchedUsers } = await pool.query(
         `SELECT u.id FROM users u
@@ -592,37 +629,125 @@ const setContactTag = async (req, res, next) => {
         [`%${cleanTargetName}%`, userId]
       );
       if (matchedUsers.length > 0) {
-        const resolvedId = matchedUsers[0].id;
-        const result = await pool.query(
-          `UPDATE partner_connections 
-           SET custom_relationship_label = $1, relationship = $2, updated_at = NOW() 
-           WHERE (requester_id = $3 AND recipient_id = $4) OR (requester_id = $4 AND recipient_id = $3)`,
-          [cleanTag, cleanRel, userId, resolvedId]
+        targetUserId = matchedUsers[0].id;
+        const { rows } = await pool.query(
+          `SELECT * FROM partner_connections 
+           WHERE (requester_id = $1 AND recipient_id = $2) OR (requester_id = $2 AND recipient_id = $1)`,
+          [userId, targetUserId]
         );
-        if (result.rowCount > 0) {
-          updated = true;
-        } else {
-          await pool.query(
-            `INSERT INTO partner_connections (requester_id, recipient_id, relationship, custom_relationship_label, status, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, 'ACCEPTED', NOW(), NOW())`,
-            [userId, resolvedId, cleanRel, cleanTag]
-          );
-          updated = true;
+        if (rows.length > 0) {
+          conn = rows[0];
         }
       }
     }
 
-    // Update account_tag in profiles table if target_user_id is available
-    if (target_user_id && isValidUuid(target_user_id)) {
+    // If still no target user found
+    if (!conn && !targetUserId) {
+      return res.status(404).json({ success: false, message: 'Target user or connection not found' });
+    }
+
+    // If no existing connection, create one
+    if (!conn && targetUserId) {
+      const { rows: newConn } = await pool.query(
+        `INSERT INTO partner_connections 
+         (requester_id, recipient_id, status, relationship, requester_relationship, recipient_relationship, created_at, updated_at)
+         VALUES ($1, $2, 'ACCEPTED', 'Partner', 'Partner', 'Partner', NOW(), NOW())
+         RETURNING *`,
+        [userId, targetUserId]
+      );
+      conn = newConn[0];
+    }
+
+    if (!targetUserId) {
+      targetUserId = conn.requester_id === userId ? conn.recipient_id : conn.requester_id;
+    }
+
+    // 2. Fetch Demographics for Actor and Target
+    const actorDemo = await getUserDemographics(userId);
+    const targetDemo = await getUserDemographics(targetUserId);
+
+    // 3. Determine Reciprocal Mapping
+    let mapping;
+    try {
+      mapping = determineReciprocal({
+        assignedTag: cleanTag,
+        actorGender: actorDemo.gender,
+        actorUsageMode: actorDemo.usage_mode,
+        targetGender: targetDemo.gender,
+        targetUsageMode: targetDemo.usage_mode,
+        explicitReciprocal: reciprocal_relationship
+      });
+    } catch (err) {
+      if (err.code === 'INCOMPATIBLE_RELATIONSHIP' || err.code === 'RECIPROCAL_RELATIONSHIP_AMBIGUOUS') {
+        return res.status(err.statusCode || 400).json({
+          success: false,
+          error: err.code,
+          message: err.message,
+          options: err.options || []
+        });
+      }
+      throw err;
+    }
+
+    const assignedTag = mapping.assigned;
+    const reciprocalTag = mapping.reciprocal;
+    const isRequester = conn.requester_id === userId;
+
+    // 4. Update partner_connections atomically
+    if (isRequester) {
+      await pool.query(
+        `UPDATE partner_connections 
+         SET requester_relationship = $1, recipient_relationship = $2,
+             requester_custom_label = $3,
+             relationship = $1, custom_relationship_label = $3,
+             updated_at = NOW() 
+         WHERE id = $4`,
+        [assignedTag, reciprocalTag, cleanTag, conn.id]
+      );
+    } else {
+      await pool.query(
+        `UPDATE partner_connections 
+         SET recipient_relationship = $1, requester_relationship = $2,
+             recipient_custom_label = $3,
+             relationship = $2, custom_relationship_label = $3,
+             updated_at = NOW() 
+         WHERE id = $4`,
+        [assignedTag, reciprocalTag, cleanTag, conn.id]
+      );
+    }
+
+    // 5. Audit Trail
+    try {
+      await pool.query(
+        `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id, metadata)
+         VALUES ($1, $2, 'RELATIONSHIP_UPDATED', $3, $4)`,
+        [conn.id, userId, targetUserId, JSON.stringify({
+          assigned: assignedTag,
+          reciprocal: reciprocalTag,
+          source: 'CHAT'
+        })]
+      );
+    } catch (_) {}
+
+    // Update account_tag in profiles table for quick glance
+    if (targetUserId) {
       try {
         await pool.query(
           `UPDATE profiles SET account_tag = $1, updated_at = NOW() WHERE user_id = $2`,
-          [cleanTag, target_user_id]
+          [assignedTag, targetUserId]
         );
       } catch (_) {}
     }
 
-    res.json({ success: true, message: `Tag set to "${cleanTag}"`, tag: cleanTag });
+    res.json({
+      success: true,
+      connection_id: conn.id,
+      target_user_id: targetUserId,
+      tag: assignedTag,
+      relationship: assignedTag,
+      reciprocal_relationship: reciprocalTag,
+      message: `Relationship updated to "${assignedTag}" (reciprocal: "${reciprocalTag}")`
+    });
   } catch (err) {
     next(err);
   }
