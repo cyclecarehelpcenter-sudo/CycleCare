@@ -297,34 +297,32 @@ add_image_box("mascot_shy.png", "Panda Pose 3: Shy / Sensitive Input Pose (Resto
 add_heading_2("Core Screen Inventory with Visual Assets")
 
 add_heading_3("A. Authentication & Home Wellness Dashboard")
-add_image_box("screen_login.png", "LoginActivity - Panda Companion & Demo Courier Login", width_in_inches=2.8)
-add_image_box("screen_home_dashboard.png", "HomeFragment - Circular Cycle Dial & Phase Badge", width_in_inches=2.8)
+add_heading_3("A. Authentication & Home Wellness Dashboard")
+add_image_box("screen_login.png", "LoginActivity - Animated Panda Companion & Demo Courier Login", width_in_inches=2.6)
+add_image_box("screen_home_dashboard.png", "HomeFragment (Light Mode) - Circular Cycle Dial, Ovulation Window & Trend Analysis", width_in_inches=2.6)
+add_image_box("screen_home_dark.png", "HomeFragment (Dark Mode) - Neumorphic Dark Dial & Basal Body Temperature", width_in_inches=2.6)
 
-add_heading_3("B. Cycle Calendar & Symptom Logging Modal")
-add_image_box("screen_cycle_calendar.png", "CalendarFragment - Monthly Grid & Period Windows", width_in_inches=2.8)
-add_image_box("screen_period_log_modal.png", "PeriodLogDialogFragment - Flow Intensity & Cramp Slider", width_in_inches=2.8)
+add_heading_3("B. Cycle Calendar & Symptom Logging")
+add_image_box("screen_cycle_calendar.png", "CalendarFragment (Dark Mode) - October 2026 Monthly Grid & Reminders", width_in_inches=2.6)
+add_image_box("screen_period_log_modal.png", "PeriodLogDialogFragment (Dark Mode) - Start/End Dates & Flow Intensity Chips", width_in_inches=2.6)
 
-add_heading_3("C. Wellness Store, Product Details & Live Tracking")
-add_image_box("screen_wellness_store.png", "StoreFragment - E-Commerce Catalog & Categories", width_in_inches=2.8)
-add_image_box("screen_product_detail.png", "ProductDetailActivity - Hygiene Badges & Buy Now", width_in_inches=2.8)
-add_image_box("screen_order_dialog.png", "OrderSummaryDialog - Itemized Invoice & Demo Payment", width_in_inches=2.8)
-add_image_box("screen_order_success.png", "OrderSuccessActivity - Waving Mascot & Order Number", width_in_inches=2.8)
-add_image_box("screen_order_tracking.png", "OrderTrackingActivity - Live Route Map & OTP 4821", width_in_inches=2.8)
+add_heading_3("C. Wellness Store & Express Care Logistics")
+add_image_box("screen_wellness_store.png", "StoreFragment (Light Mode) - Curated Comfort Catalog & Product Grid", width_in_inches=2.6)
+add_image_box("screen_wellness_store_dark.png", "StoreFragment (Dark Mode) - Heating Bags, Roll-Ons & Sleep Gummies", width_in_inches=2.6)
+add_image_box("screen_order_tracking.png", "OrderTrackingActivity - Real-time Courier Route & Secret OTP 4821", width_in_inches=2.6)
 
-add_heading_3("D. Partner Care, Reciprocal Tagging & Permissions")
-add_image_box("screen_partner_dashboard.png", "PartnerActivity - Connected Partner Card & Reciprocal Tag", width_in_inches=2.8)
-add_image_box("screen_relationship_tag_modal.png", "RelationshipTagDialogFragment - Live Reciprocal Preview", width_in_inches=2.8)
-add_image_box("screen_sharing_permissions.png", "SharingPermissionsBottomSheet - Granular Privacy Switches", width_in_inches=2.8)
+add_heading_3("D. Trusted Circle Chats & Reciprocal Connections")
+add_image_box("screen_conversations_inbox.png", "Circle Care Chats Inbox - Reciprocal Relation Badges (Husband, Brother, Admin)", width_in_inches=2.6)
+add_image_box("screen_partner_dashboard.png", "Partner Care Dashboard - Connected Partner Card & Comfort Guidance", width_in_inches=2.6)
 
-add_heading_3("E. Trusted Circle Chat & In-Chat Gifting")
-add_image_box("screen_conversations_inbox.png", "ConversationsActivity - Partner Chat Inbox", width_in_inches=2.8)
-add_image_box("screen_chat_messages.png", "ChatActivity - Real-time Messages & Read Receipts", width_in_inches=2.8)
-add_image_box("screen_chat_care_items.png", "CareItemsBottomSheet - Care Hamper Gifting inside Chat", width_in_inches=2.8)
+add_heading_3("E. User Profile, Settings & Discreet Privacy")
+add_image_box("screen_profile_view.png", "Profile & Settings (Dark Mode) - On-Device Encryption & Cycle Baselines", width_in_inches=2.6)
+add_image_box("screen_profile_scrolled.png", "Profile Extended View (Light Mode) - Circle Chat, Orders & APK Share", width_in_inches=2.6)
+add_image_box("screen_settings_discreet.png", "Settings & Language (Dark Mode) - Discreet Privacy Mode & JSON Data Export", width_in_inches=2.6)
 
-add_heading_3("F. Profile, Dark Mode Contrast & Admin Panel")
-add_image_box("screen_profile_view.png", "ProfileActivity - User Baseline Stats & Theme Switcher", width_in_inches=2.8)
-add_image_box("screen_profile_dark_mode.png", "Profile in Dark Mode - High Contrast Text Verified", width_in_inches=2.8)
-add_image_box("screen_admin_panel.png", "Admin Control Panel - Single Page Web SPA Telemetry", width_in_inches=4.2)
+add_heading_3("F. Admin Web Control Panel (Live Production SPA)")
+add_image_box("screen_admin_panel.png", "Admin Control Panel (localhost:5000) - Real-time Store Inventory & Live Telemetry", width_in_inches=4.4)
+add_image_box("screen_admin_users.png", "Admin Control Panel - Registered Users, Demographics & Reciprocal Tags", width_in_inches=4.4)
 
 # ========================================================
 # CHAPTER 4: COMPLETE API REFERENCE
@@ -459,7 +457,7 @@ add_bullet("Render Cloud Web Service and Supabase PostgreSQL live operational.",
 
 # Save Word Document
 doc.save(DOCX_OUT)
-print(f"Successfully generated DOCX: {DOCX_OUT}")
+print("Successfully generated DOCX!")
 
 # Convert to PDF using Word COM
 print("Converting DOCX to PDF via Microsoft Word COM...")
@@ -471,6 +469,6 @@ try:
     doc_com.SaveAs(os.path.abspath(PDF_OUT), FileFormat=17) # 17 = wdFormatPDF
     doc_com.Close()
     word.Quit()
-    print(f"Successfully generated PDF: {PDF_OUT}")
+    print("Successfully generated PDF!")
 except Exception as e:
     print(f"Error during Word COM PDF conversion: {e}")
