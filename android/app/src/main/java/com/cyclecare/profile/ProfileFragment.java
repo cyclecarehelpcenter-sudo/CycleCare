@@ -58,6 +58,9 @@ public class ProfileFragment extends Fragment {
                 final EditText input = new EditText(getContext());
                 input.setHint("Enter new display name");
                 input.setText(tvUserName.getText().toString());
+                input.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.textPrimary));
+                input.setHintTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.textHint));
+                input.setPadding(60, 40, 60, 40);
                 new androidx.appcompat.app.AlertDialog.Builder(requireContext())
                         .setTitle("✏️ Update Display Name")
                         .setView(input)
@@ -99,10 +102,14 @@ public class ProfileFragment extends Fragment {
                 final EditText etPhone = new EditText(getContext());
                 etPhone.setHint("Emergency Phone (e.g. 9876543210)");
                 etPhone.setInputType(android.text.InputType.TYPE_CLASS_PHONE);
+                etPhone.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.textPrimary));
+                etPhone.setHintTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.textHint));
                 layout.addView(etPhone);
 
                 final EditText etRel = new EditText(getContext());
                 etRel.setHint("Relationship (e.g. Husband, Relative, Mom)");
+                etRel.setTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.textPrimary));
+                etRel.setHintTextColor(androidx.core.content.ContextCompat.getColor(requireContext(), R.color.textHint));
                 layout.addView(etRel);
 
                 new androidx.appcompat.app.AlertDialog.Builder(requireContext())
