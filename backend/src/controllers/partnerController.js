@@ -1,61 +1,118 @@
 const supabase = require('../config/supabase');
+const pool = require('../config/db');
 const crypto = require('crypto');
 const { sendProductCampaignNotification } = require('../services/notificationService');
 
 const ALL_PERMISSION_TYPES = [
+  'CYCLE_PHASE',
   'CYCLE_WINDOW',
-  'CARE_KIT',
-  'WISHLIST',
+  'OVULATION_WINDOW',
   'SYMPTOMS',
   'MOOD',
+  'CARE_REQUESTS',
+  'CARE_KIT',
+  'WISHLIST',
   'REMINDERS',
   'SHOPPING',
   'DELIVERY_ADDRESS'
 ];
 
-// Helper: Verify active connection and permission
-async function verifyPartnerPermission(userId, connectionId, permissionType) {
-  // Find connection
-  const { data: conn, error: connErr } = await supabase
-    .from('partner_connections')
-    .select('*')
-    .eq('id', connectionId)
-    .single();
+/**
+ * Display Priority Ranking:
+ * 1 = Husband (highest)
+ * 2 = Boyfriend / Wife / Girlfriend / Partner
+ * 3 = Father / Mother / Daughter / Son / Sister / Brother / Family
+ * 4 = Best Friend / Guardian
+ * 5 = Other / Custom
+ */
+function getRelationshipPriority(rel) {
+  if (!rel) return 5;
+  const lower = rel.toLowerCase();
+  if (lower.includes('husband')) return 1;
+  if (lower.includes('boyfriend') || lower.includes('partner') || lower.includes('wife') || lower.includes('girlfriend')) return 2;
+  if (lower.includes('father') || lower.includes('mother') || lower.includes('daughter') || lower.includes('son') ||
+      lower.includes('sister') || lower.includes('brother') || lower.includes('family') || lower.includes('parent')) return 3;
+  if (lower.includes('best friend') || lower.includes('friend') || lower.includes('guardian')) return 4;
+  return 5;
+}
 
-  if (connErr || !conn) {
+/**
+ * Perspective-aware relationship label resolution
+ */
+function resolveRelationshipForUser(conn, userId) {
+  const isRequester = conn.requester_id === userId;
+  if (isRequester) {
+    return conn.requester_custom_label || conn.requester_relationship || conn.custom_relationship_label || conn.relationship || 'Partner';
+  } else {
+    return conn.recipient_custom_label || conn.recipient_relationship || conn.custom_relationship_label || conn.relationship || 'Partner';
+  }
+}
+
+/**
+ * Safe display name resolver with robust fallbacks
+ */
+function resolveDisplayName(profile, userEmail) {
+  if (profile && profile.display_name && profile.display_name.trim().length > 0) {
+    return profile.display_name.trim();
+  }
+  if (userEmail && typeof userEmail === 'string') {
+    const prefix = userEmail.split('@')[0];
+    return prefix.charAt(0).toUpperCase() + prefix.slice(1);
+  }
+  return 'Family Member';
+}
+
+/**
+ * Helper: compute initials (e.g. "Aastha Sharma" -> "AS")
+ */
+function getInitials(name) {
+  if (!name || typeof name !== 'string') return 'CC';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/**
+ * Helper: Verify active connection and granular permission
+ */
+async function verifyPartnerPermission(userId, connectionId, permissionType) {
+  const connRes = await pool.query('SELECT * FROM partner_connections WHERE id = $1', [connectionId]);
+  const conn = connRes.rows[0];
+
+  if (!conn) {
     return { allowed: false, status: 404, message: 'Connection not found' };
   }
 
   if (conn.status !== 'ACCEPTED') {
-    return { allowed: false, status: 403, message: `Connection is ${conn.status.toLowerCase()}` };
+    return { allowed: false, status: 403, message: `Connection is not active (status: ${conn.status})` };
   }
 
-  // Must be a participant in connection
   if (conn.requester_id !== userId && conn.recipient_id !== userId) {
     return { allowed: false, status: 403, message: 'Unauthorized connection access' };
   }
 
-  // Determine who owns the data being shared
-  // By default in CycleCare flow: recipient shares with requester or vice-versa
+  // The owner of the data being queried is the other participant in this connection
   const ownerId = conn.recipient_id === userId ? conn.requester_id : conn.recipient_id;
 
   if (!permissionType) {
     return { allowed: true, connection: conn, ownerId };
   }
 
-  // Check permission table
-  const { data: perm, error: permErr } = await supabase
-    .from('partner_permissions')
-    .select('enabled')
-    .eq('connection_id', connectionId)
-    .eq('permission_type', permissionType)
-    .single();
+  // Check granular permission row for this owner in this connection
+  const permRes = await pool.query(
+    `SELECT enabled FROM partner_permissions
+     WHERE connection_id = $1 AND permission_type = $2
+       AND (owner_id = $3 OR owner_id IS NULL)
+     ORDER BY owner_id NULLS LAST LIMIT 1`,
+    [connectionId, permissionType, ownerId]
+  );
 
-  if (permErr || !perm || !perm.enabled) {
+  const isEnabled = permRes.rows.length > 0 && permRes.rows[0].enabled === true;
+  if (!isEnabled) {
     return {
       allowed: false,
       status: 403,
-      message: `Access denied. Partner has not granted permission for ${permissionType}.`
+      message: `Access denied. Member has not granted permission for ${permissionType}.`
     };
   }
 
@@ -72,10 +129,9 @@ const searchPartner = async (req, res, next) => {
 
     cyclecare_id = cyclecare_id.replace(/^@/, '').trim().toLowerCase();
 
-    // Query user and basic profile ONLY
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, cyclecare_id, profiles(display_name)')
+      .select('id, cyclecare_id, email, profiles(display_name)')
       .eq('cyclecare_id', cyclecare_id)
       .single();
 
@@ -83,17 +139,19 @@ const searchPartner = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'No user found with that CycleCare ID' });
     }
 
-    // Do NOT return self
     if (user.id === req.user.id) {
       return res.status(400).json({ success: false, message: 'Cannot connect with yourself' });
     }
+
+    const safeName = resolveDisplayName(user.profiles, user.email);
 
     res.json({
       success: true,
       partner: {
         id: user.id,
         cyclecare_id: `@${user.cyclecare_id}`,
-        display_name: user.profiles?.display_name || 'CycleCare User'
+        display_name: safeName,
+        initials: getInitials(safeName)
       }
     });
   } catch (err) {
@@ -138,7 +196,7 @@ const validateInvite = async (req, res, next) => {
 
     const { data: invite, error } = await supabase
       .from('partner_invites')
-      .select('*, users(cyclecare_id, profiles(display_name))')
+      .select('*, users(cyclecare_id, email, profiles(display_name))')
       .eq('invite_token', token)
       .single();
 
@@ -150,12 +208,15 @@ const validateInvite = async (req, res, next) => {
       return res.status(410).json({ success: false, message: 'Invite link has expired or has already been used' });
     }
 
+    const safeName = resolveDisplayName(invite.users?.profiles, invite.users?.email);
+
     res.json({
       success: true,
       invite: {
         owner_id: invite.owner_user_id,
         cyclecare_id: invite.users?.cyclecare_id ? `@${invite.users.cyclecare_id}` : null,
-        display_name: invite.users?.profiles?.display_name || 'CycleCare User'
+        display_name: safeName,
+        initials: getInitials(safeName)
       }
     });
   } catch (err) {
@@ -163,20 +224,24 @@ const validateInvite = async (req, res, next) => {
   }
 };
 
-// 4. Send Connection Request
+// 4. Send Connection Request with Perspective Tagging
 const sendConnectionRequest = async (req, res, next) => {
   try {
     const requesterId = req.user.id;
-    let { recipient_id, cyclecare_id, invite_token } = req.body;
+    let { recipient_id, recipient_email, cyclecare_id, invite_token, relationship, custom_label, requester_relationship, recipient_relationship } = req.body;
 
-    // Resolve recipient ID if not directly provided
-    if (!recipient_id && cyclecare_id) {
+    // Resolve recipient ID if email, handle or token provided
+    if (!recipient_id && recipient_email) {
+      const cleanEmail = recipient_email.trim().toLowerCase();
+      const userRes = await pool.query('SELECT id FROM users WHERE LOWER(email) = $1 LIMIT 1', [cleanEmail]);
+      if (userRes.rows[0]) recipient_id = userRes.rows[0].id;
+    } else if (!recipient_id && cyclecare_id) {
       const cleanId = cyclecare_id.replace(/^@/, '').trim().toLowerCase();
-      const { data: u } = await supabase.from('users').select('id').eq('cyclecare_id', cleanId).single();
-      if (u) recipient_id = u.id;
+      const userRes = await pool.query('SELECT id FROM users WHERE LOWER(cyclecare_id) = $1 LIMIT 1', [cleanId]);
+      if (userRes.rows[0]) recipient_id = userRes.rows[0].id;
     } else if (!recipient_id && invite_token) {
-      const { data: inv } = await supabase.from('partner_invites').select('owner_user_id').eq('invite_token', invite_token).single();
-      if (inv) recipient_id = inv.owner_user_id;
+      const invRes = await pool.query('SELECT owner_user_id FROM partner_invites WHERE invite_token = $1 LIMIT 1', [invite_token]);
+      if (invRes.rows[0]) recipient_id = invRes.rows[0].owner_user_id;
     }
 
     if (!recipient_id) {
@@ -187,16 +252,24 @@ const sendConnectionRequest = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Cannot connect to your own account' });
     }
 
-    // Check existing connection
-    const { data: existing } = await supabase
-      .from('partner_connections')
-      .select('*')
-      .or(`and(requester_id.eq.${requesterId},recipient_id.eq.${recipient_id}),and(requester_id.eq.${recipient_id},recipient_id.eq.${requesterId})`)
-      .single();
+    const cleanRel = relationship || requester_relationship || 'Partner';
+    const cleanRequesterRel = requester_relationship || cleanRel;
+    const cleanRecipientRel = recipient_relationship || 'Partner';
+    const cleanCustom = (custom_label || '').trim();
+
+    // Check existing connection pair
+    const checkRes = await pool.query(
+      `SELECT * FROM partner_connections 
+       WHERE (requester_id = $1 AND recipient_id = $2) 
+          OR (requester_id = $2 AND recipient_id = $1)`,
+      [requesterId, recipient_id]
+    );
+
+    const existing = checkRes.rows[0];
 
     if (existing) {
       if (existing.status === 'ACCEPTED') {
-        return res.status(400).json({ success: false, message: 'You are already connected with this partner' });
+        return res.status(400).json({ success: false, message: 'You are already connected with this person' });
       }
       if (existing.status === 'PENDING') {
         return res.status(400).json({ success: false, message: 'A connection request is already pending' });
@@ -204,108 +277,186 @@ const sendConnectionRequest = async (req, res, next) => {
       if (existing.status === 'BLOCKED') {
         return res.status(403).json({ success: false, message: 'Unable to connect with this user' });
       }
-      // If was revoked or declined, reopen
-      const { data: renewed, error: renewErr } = await supabase
-        .from('partner_connections')
-        .update({ status: 'PENDING', requester_id: requesterId, recipient_id, updated_at: new Date() })
-        .eq('id', existing.id)
-        .select()
-        .single();
-      if (renewErr) throw renewErr;
-      return res.json({ success: true, message: 'Partner request sent successfully', connection: renewed });
+
+      // Reopen revoked or declined connection
+      const renewRes = await pool.query(
+        `UPDATE partner_connections 
+         SET status = 'PENDING', requester_id = $1, recipient_id = $2,
+             relationship = $3, custom_relationship_label = $4,
+             requester_relationship = $5, recipient_relationship = $6, requester_custom_label = $4,
+             updated_at = NOW()
+         WHERE id = $7 RETURNING *`,
+        [requesterId, recipient_id, cleanRel, cleanCustom, cleanRequesterRel, cleanRecipientRel, existing.id]
+      );
+
+      // Audit trail
+      await pool.query(
+        `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id, metadata)
+         VALUES ($1, $2, 'REQUEST_SENT', $3, $4)`,
+        [existing.id, requesterId, recipient_id, JSON.stringify({ relationship: cleanRel, custom_label: cleanCustom })]
+      );
+
+      return res.json({ success: true, message: 'Connection request sent successfully', connection: renewRes.rows[0] });
     }
 
-    const { data: conn, error } = await supabase
-      .from('partner_connections')
-      .insert([{
-        requester_id: requesterId,
-        recipient_id: recipient_id,
-        status: 'PENDING'
-      }])
-      .select()
-      .single();
+    const insertRes = await pool.query(
+      `INSERT INTO partner_connections 
+       (requester_id, recipient_id, status, relationship, custom_relationship_label, requester_relationship, recipient_relationship, requester_custom_label)
+       VALUES ($1, $2, 'PENDING', $3, $4, $5, $6, $4) RETURNING *`,
+      [requesterId, recipient_id, cleanRel, cleanCustom, cleanRequesterRel, cleanRecipientRel]
+    );
 
-    if (error) throw error;
+    const conn = insertRes.rows[0];
 
-    // Send privacy-safe alert to recipient
+    // Audit trail
+    await pool.query(
+      `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id, metadata)
+       VALUES ($1, $2, 'REQUEST_SENT', $3, $4)`,
+      [conn.id, requesterId, recipient_id, JSON.stringify({ relationship: cleanRel, custom_label: cleanCustom })]
+    );
+
+    // Send privacy-safe in-app notification
     try {
       await supabase.from('notifications').insert([{
         user_id: recipient_id,
-        title: 'New Partner Connection Request',
-        body: 'Someone would like to connect with you on CycleCare.',
+        title: 'New Family & Partner Connection Request',
+        body: `Someone would like to connect with you as ${cleanCustom || cleanRel}.`,
         type: 'PARTNER_REQUEST'
       }]);
     } catch (_) {}
 
-    res.status(201).json({ success: true, message: 'Partner connection request sent', connection: conn });
+    res.status(201).json({ success: true, message: 'Connection request sent', connection: conn });
   } catch (err) {
     next(err);
   }
 };
 
-// 5. List Requests and Connections
+// 5. List Requests and Connections with Priority Ranking and Multi-Member Support
 const listRequests = async (req, res, next) => {
   try {
     const userId = req.user.id;
 
-    const { data: connections, error } = await supabase
-      .from('partner_connections')
-      .select('*, requester:requester_id(id, cyclecare_id, profiles(display_name)), recipient:recipient_id(id, cyclecare_id, profiles(display_name))')
-      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
-      .order('updated_at', { ascending: false });
+    const query = `
+      SELECT pc.*,
+        ru.cyclecare_id AS requester_cyclecare_id, ru.email AS requester_email,
+        rp.display_name AS requester_display_name, rp.profile_image AS requester_avatar,
+        cu.cyclecare_id AS recipient_cyclecare_id, cu.email AS recipient_email,
+        cp.display_name AS recipient_display_name, cp.profile_image AS recipient_avatar
+      FROM partner_connections pc
+      LEFT JOIN users ru ON pc.requester_id = ru.id
+      LEFT JOIN profiles rp ON pc.requester_id = rp.user_id
+      LEFT JOIN users cu ON pc.recipient_id = cu.id
+      LEFT JOIN profiles cp ON pc.recipient_id = cp.user_id
+      WHERE pc.requester_id = $1 OR pc.recipient_id = $1
+      ORDER BY pc.updated_at DESC
+    `;
 
-    if (error) throw error;
+    const result = await pool.query(query, [userId]);
+    const connections = result.rows;
 
     const incoming = [];
     const outgoing = [];
-    const active = [];
+    const allActive = [];
+    const revokedList = [];
 
-    (connections || []).forEach(c => {
+    // Fetch active permissions for user
+    const permsRes = await pool.query(
+      `SELECT connection_id, permission_type, enabled, owner_id FROM partner_permissions
+       WHERE connection_id = ANY($1)`,
+      [connections.map(c => c.id).filter(Boolean)]
+    );
+
+    const permsByConn = {};
+    permsRes.rows.forEach(p => {
+      if (!permsByConn[p.connection_id]) permsByConn[p.connection_id] = {};
+      permsByConn[p.connection_id][p.permission_type] = p.enabled;
+    });
+
+    for (const c of connections) {
       const isRecipient = c.recipient_id === userId;
-      const otherUser = isRecipient ? c.requester : c.recipient;
+      const otherUserId = isRecipient ? c.requester_id : c.recipient_id;
+      const otherHandle = isRecipient ? c.requester_cyclecare_id : c.recipient_cyclecare_id;
+      const otherEmail = isRecipient ? c.requester_email : c.recipient_email;
+      const otherDisplayName = isRecipient ? c.requester_display_name : c.recipient_display_name;
+      const otherAvatar = isRecipient ? c.requester_avatar : c.recipient_avatar;
+
+      const safeName = resolveDisplayName({ display_name: otherDisplayName }, otherEmail);
+      const relationshipLabel = resolveRelationshipForUser(c, userId);
+      const priorityRank = getRelationshipPriority(relationshipLabel);
+
       const connData = {
         id: c.id,
         status: c.status,
+        relationship: relationshipLabel,
+        resolved_relationship: relationshipLabel,
+        priority_rank: priorityRank,
+        is_primary_partner: !!c.is_primary_partner,
         created_at: c.created_at,
+        accepted_at: c.accepted_at,
+        updated_at: c.updated_at,
         partner: {
-          id: otherUser?.id,
-          cyclecare_id: otherUser?.cyclecare_id ? `@${otherUser.cyclecare_id}` : null,
-          display_name: otherUser?.profiles?.display_name || 'Partner'
-        }
+          id: otherUserId,
+          cyclecare_id: otherHandle ? `@${otherHandle}` : null,
+          display_name: safeName,
+          avatar_url: otherAvatar || null,
+          initials: getInitials(safeName)
+        },
+        partner_profile: {
+          id: otherUserId,
+          cyclecare_id: otherHandle ? `@${otherHandle}` : null,
+          display_name: safeName,
+          avatar_url: otherAvatar || null,
+          initials: getInitials(safeName)
+        },
+        permissions_summary: permsByConn[c.id] || {}
       };
 
       if (c.status === 'ACCEPTED') {
-        active.push(connData);
+        allActive.push(connData);
       } else if (c.status === 'PENDING') {
         if (isRecipient) incoming.push(connData);
         else outgoing.push(connData);
+      } else if (['REVOKED', 'DECLINED', 'BLOCKED'].includes(c.status)) {
+        revokedList.push(connData);
       }
+    }
+
+    // Sort active connections by Priority Rank ASC (Husband rank 1, Partner rank 2, Family rank 3...), then updated_at DESC
+    allActive.sort((a, b) => {
+      if (a.priority_rank !== b.priority_rank) return a.priority_rank - b.priority_rank;
+      return new Date(b.updated_at) - new Date(a.updated_at);
     });
+
+    // Primary partner is the top priority connection (Husband, Partner)
+    const primaryPartner = allActive.length > 0 && allActive[0].priority_rank <= 2 ? allActive[0] : null;
+    const familyMembers = primaryPartner ? allActive.slice(1) : allActive;
 
     res.json({
       success: true,
-      active,
+      primary_partner: primaryPartner,
+      family_members: familyMembers,
+      all_active: allActive,
       incoming,
-      outgoing
+      outgoing,
+      revoked: revokedList,
+      total_active_count: allActive.length
     });
   } catch (err) {
     next(err);
   }
 };
 
-// 6. Accept Connection Request (Default permissions: ALL OFF)
+// 6. Accept Connection Request (with optional reciprocal relationship label)
 const acceptRequest = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const connectionId = req.params.id;
+    const { reciprocal_relationship, custom_label } = req.body || {};
 
-    const { data: conn, error: fetchErr } = await supabase
-      .from('partner_connections')
-      .select('*')
-      .eq('id', connectionId)
-      .single();
+    const connRes = await pool.query('SELECT * FROM partner_connections WHERE id = $1', [connectionId]);
+    const conn = connRes.rows[0];
 
-    if (fetchErr || !conn) {
+    if (!conn) {
       return res.status(404).json({ success: false, message: 'Request not found' });
     }
 
@@ -313,31 +464,51 @@ const acceptRequest = async (req, res, next) => {
       return res.status(403).json({ success: false, message: 'Only the recipient can accept this request' });
     }
 
-    // Update connection status
-    const { data: updated, error } = await supabase
-      .from('partner_connections')
-      .update({ status: 'ACCEPTED', accepted_at: new Date(), updated_at: new Date() })
-      .eq('id', connectionId)
-      .select()
-      .single();
+    const cleanRel = reciprocal_relationship || conn.relationship || 'Partner';
+    const cleanCustom = (custom_label || '').trim();
 
-    if (error) throw error;
+    const updateRes = await pool.query(
+      `UPDATE partner_connections 
+       SET status = 'ACCEPTED', accepted_at = NOW(), updated_at = NOW(),
+           recipient_relationship = $1, recipient_custom_label = $2
+       WHERE id = $3 RETURNING *`,
+      [cleanRel, cleanCustom, connectionId]
+    );
 
-    // Initialize all 8 granular permissions to FALSE (Default: ALL OFF)
-    const permissionRows = ALL_PERMISSION_TYPES.map(type => ({
-      connection_id: connectionId,
-      permission_type: type,
-      enabled: false
-    }));
+    const updated = updateRes.rows[0];
 
-    await supabase.from('partner_permissions').upsert(permissionRows, { onConflict: 'connection_id, permission_type' });
+    // Initialize all granular permissions to FALSE (Default: ALL OFF, privacy-first)
+    for (const type of ALL_PERMISSION_TYPES) {
+      // For both user directions
+      await pool.query(
+        `INSERT INTO partner_permissions (connection_id, permission_type, owner_id, enabled, updated_at)
+         VALUES ($1, $2, $3, false, NOW())
+         ON CONFLICT (connection_id, permission_type, COALESCE(owner_id, '00000000-0000-0000-0000-000000000000'::uuid))
+         DO NOTHING`,
+        [connectionId, type, userId]
+      );
+      await pool.query(
+        `INSERT INTO partner_permissions (connection_id, permission_type, owner_id, enabled, updated_at)
+         VALUES ($1, $2, $3, false, NOW())
+         ON CONFLICT (connection_id, permission_type, COALESCE(owner_id, '00000000-0000-0000-0000-000000000000'::uuid))
+         DO NOTHING`,
+        [connectionId, type, conn.requester_id]
+      );
+    }
+
+    // Audit trail
+    await pool.query(
+      `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id, metadata)
+       VALUES ($1, $2, 'ACCEPTED', $3, $4)`,
+      [connectionId, userId, conn.requester_id, JSON.stringify({ reciprocal_relationship: cleanRel, custom_label: cleanCustom })]
+    );
 
     // Notify requester
     try {
       await supabase.from('notifications').insert([{
         user_id: conn.requester_id,
-        title: 'Partner Connection Accepted!',
-        body: 'You are now connected on CycleCare. Your partner can now choose what information to share.',
+        title: 'Connection Accepted! 🤝',
+        body: 'You are now connected on CycleCare. Each member controls what they choose to share.',
         type: 'PARTNER_ACCEPTED'
       }]);
     } catch (_) {}
@@ -358,212 +529,472 @@ const declineRequest = async (req, res, next) => {
     const userId = req.user.id;
     const connectionId = req.params.id;
 
-    const { data: updated, error } = await supabase
-      .from('partner_connections')
-      .update({ status: 'DECLINED', declined_at: new Date(), updated_at: new Date() })
-      .eq('id', connectionId)
-      .eq('recipient_id', userId)
-      .select()
-      .single();
+    const connRes = await pool.query('SELECT * FROM partner_connections WHERE id = $1', [connectionId]);
+    const conn = connRes.rows[0];
 
-    if (error) throw error;
+    if (!conn) {
+      return res.status(404).json({ success: false, message: 'Request not found' });
+    }
+
+    if (conn.recipient_id !== userId) {
+      return res.status(403).json({ success: false, message: 'Only the recipient can decline this request' });
+    }
+
+    await pool.query(
+      `UPDATE partner_connections 
+       SET status = 'DECLINED', declined_at = NOW(), updated_at = NOW() 
+       WHERE id = $1`,
+      [connectionId]
+    );
+
+    // Audit trail
+    await pool.query(
+      `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id)
+       VALUES ($1, $2, 'DECLINED', $3)`,
+      [connectionId, userId, conn.requester_id]
+    );
+
     res.json({ success: true, message: 'Connection request declined' });
   } catch (err) {
     next(err);
   }
 };
 
-// 8. Disconnect / Revoke Connection
+// 8. Disconnect / Revoke Connection (Immediately Blocks Access)
 const revokeConnection = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const connectionId = req.params.connectionId;
 
-    const { data: updated, error } = await supabase
-      .from('partner_connections')
-      .update({ status: 'REVOKED', revoked_at: new Date(), updated_at: new Date() })
-      .eq('id', connectionId)
-      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
-      .select()
-      .single();
+    const connRes = await pool.query(
+      `SELECT * FROM partner_connections 
+       WHERE id = $1 AND (requester_id = $2 OR recipient_id = $2)`,
+      [connectionId, userId]
+    );
+    const conn = connRes.rows[0];
 
-    if (error) throw error;
+    if (!conn) {
+      return res.status(404).json({ success: false, message: 'Connection not found' });
+    }
+
+    const otherUserId = conn.requester_id === userId ? conn.recipient_id : conn.requester_id;
+
+    await pool.query(
+      `UPDATE partner_connections 
+       SET status = 'REVOKED', revoked_at = NOW(), updated_at = NOW() 
+       WHERE id = $1`,
+      [connectionId]
+    );
 
     // Immediately disable all permissions
-    await supabase.from('partner_permissions').update({ enabled: false }).eq('connection_id', connectionId);
+    await pool.query(
+      `UPDATE partner_permissions SET enabled = false, updated_at = NOW() 
+       WHERE connection_id = $1`,
+      [connectionId]
+    );
 
-    res.json({ success: true, message: 'Partner connection disconnected and access revoked.' });
+    // Audit trail
+    await pool.query(
+      `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id)
+       VALUES ($1, $2, 'REVOKED', $3)`,
+      [connectionId, userId, otherUserId]
+    );
+
+    res.json({ success: true, message: 'Connection disconnected and access revoked immediately.' });
   } catch (err) {
     next(err);
   }
 };
 
-// 9. Block Partner
+// 9. Block User
 const blockPartner = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const connectionId = req.params.connectionId;
 
-    const { data: updated, error } = await supabase
-      .from('partner_connections')
-      .update({ status: 'BLOCKED', updated_at: new Date() })
-      .eq('id', connectionId)
-      .or(`requester_id.eq.${userId},recipient_id.eq.${userId}`)
-      .select()
-      .single();
+    const connRes = await pool.query(
+      `SELECT * FROM partner_connections 
+       WHERE id = $1 AND (requester_id = $2 OR recipient_id = $2)`,
+      [connectionId, userId]
+    );
+    const conn = connRes.rows[0];
 
-    if (error) throw error;
-    await supabase.from('partner_permissions').update({ enabled: false }).eq('connection_id', connectionId);
+    if (!conn) {
+      return res.status(404).json({ success: false, message: 'Connection not found' });
+    }
 
-    res.json({ success: true, message: 'User blocked' });
+    const otherUserId = conn.requester_id === userId ? conn.recipient_id : conn.requester_id;
+
+    await pool.query(
+      `UPDATE partner_connections SET status = 'BLOCKED', updated_at = NOW() WHERE id = $1`,
+      [connectionId]
+    );
+    await pool.query(
+      `UPDATE partner_permissions SET enabled = false, updated_at = NOW() WHERE connection_id = $1`,
+      [connectionId]
+    );
+
+    // Audit trail
+    await pool.query(
+      `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id)
+       VALUES ($1, $2, 'BLOCKED', $3)`,
+      [connectionId, userId, otherUserId]
+    );
+
+    res.json({ success: true, message: 'User blocked and connection terminated' });
   } catch (err) {
     next(err);
   }
 };
 
-// 10. Get Permissions Matrix
+// 10. Update Relationship Perspective
+const updateRelationship = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const connectionId = req.params.connectionId;
+    const { relationship, custom_label } = req.body;
+
+    if (!relationship && !custom_label) {
+      return res.status(400).json({ success: false, message: 'relationship or custom_label is required' });
+    }
+
+    const connRes = await pool.query(
+      `SELECT * FROM partner_connections 
+       WHERE id = $1 AND (requester_id = $2 OR recipient_id = $2)`,
+      [connectionId, userId]
+    );
+    const conn = connRes.rows[0];
+
+    if (!conn) {
+      return res.status(404).json({ success: false, message: 'Connection not found' });
+    }
+
+    const isRequester = conn.requester_id === userId;
+    const otherUserId = isRequester ? conn.recipient_id : conn.requester_id;
+    const cleanRel = relationship || 'Partner';
+    const cleanCustom = (custom_label || '').trim();
+
+    if (isRequester) {
+      await pool.query(
+        `UPDATE partner_connections 
+         SET requester_relationship = $1, requester_custom_label = $2,
+             relationship = $1, custom_relationship_label = $2, updated_at = NOW()
+         WHERE id = $3`,
+        [cleanRel, cleanCustom, connectionId]
+      );
+    } else {
+      await pool.query(
+        `UPDATE partner_connections 
+         SET recipient_relationship = $1, recipient_custom_label = $2, updated_at = NOW()
+         WHERE id = $3`,
+        [cleanRel, cleanCustom, connectionId]
+      );
+    }
+
+    // Audit trail
+    await pool.query(
+      `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id, metadata)
+       VALUES ($1, $2, 'RELATIONSHIP_UPDATED', $3, $4)`,
+      [connectionId, userId, otherUserId, JSON.stringify({ relationship: cleanRel, custom_label: cleanCustom })]
+    );
+
+    res.json({
+      success: true,
+      message: `Relationship updated to "${cleanCustom || cleanRel}"`,
+      relationship: cleanRel,
+      custom_label: cleanCustom
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 11. Get Permissions Matrix (For data owner or viewer)
 const getPermissions = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const connectionId = req.params.connectionId;
+    const queryOwnerId = req.query.owner_id;
 
     const authCheck = await verifyPartnerPermission(userId, connectionId, null);
     if (!authCheck.allowed) {
-      return res.status(authCheck.status).json({ success: false, message: authCheck.message });
+      return res.status(authCheck.status).json({ success: false, message: authCheck.message, error: authCheck.message });
     }
 
-    const { data: perms, error } = await supabase
-      .from('partner_permissions')
-      .select('permission_type, enabled, updated_at')
-      .eq('connection_id', connectionId);
+    // Target owner: if queryOwnerId specified, use it; otherwise default to logged in user (what I share)
+    const targetOwner = queryOwnerId || userId;
 
-    if (error) throw error;
+    const permRes = await pool.query(
+      `SELECT permission_type, enabled, updated_at FROM partner_permissions
+       WHERE connection_id = $1 AND (owner_id = $2 OR owner_id IS NULL)`,
+      [connectionId, targetOwner]
+    );
 
-    // Format as convenient key-value map
     const permissionMap = {};
     ALL_PERMISSION_TYPES.forEach(t => { permissionMap[t] = false; });
-    (perms || []).forEach(p => { permissionMap[p.permission_type] = p.enabled; });
+    permRes.rows.forEach(p => { permissionMap[p.permission_type] = p.enabled; });
 
     res.json({
       success: true,
       connection_id: connectionId,
+      owner_id: targetOwner,
+      is_owner: targetOwner === userId,
       permissions: permissionMap,
-      raw: perms || []
+      raw: permRes.rows
     });
   } catch (err) {
     next(err);
   }
 };
 
-// 11. Update Permissions (Immediate Effect)
+// 12. Update Permissions (Data Owner Opt-in / Opt-out with Immediate Effect)
 const updatePermissions = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const connectionId = req.params.connectionId;
-    const { permissions } = req.body; // e.g. { CYCLE_WINDOW: true, CARE_KIT: false, ... }
+    const { permissions } = req.body;
 
     if (!permissions || typeof permissions !== 'object') {
-      return res.status(400).json({ success: false, message: 'Permissions object required' });
+      return res.status(400).json({ success: false, message: 'Permissions object required', error: 'Permissions object required' });
     }
 
     const authCheck = await verifyPartnerPermission(userId, connectionId, null);
     if (!authCheck.allowed) {
-      return res.status(authCheck.status).json({ success: false, message: authCheck.message });
+      return res.status(authCheck.status).json({ success: false, message: authCheck.message, error: authCheck.message });
     }
 
-    // Upsert updated values
-    const updates = [];
+    // The user calling this IS the data owner (userId)
     for (const [permType, isEnabled] of Object.entries(permissions)) {
       if (ALL_PERMISSION_TYPES.includes(permType)) {
-        updates.push({
-          connection_id: connectionId,
-          permission_type: permType,
-          enabled: !!isEnabled,
-          updated_at: new Date()
-        });
+        await pool.query(
+          `INSERT INTO partner_permissions (connection_id, permission_type, owner_id, enabled, updated_at)
+           VALUES ($1, $2, $3, $4, NOW())
+           ON CONFLICT (connection_id, permission_type, COALESCE(owner_id, '00000000-0000-0000-0000-000000000000'::uuid))
+           DO UPDATE SET enabled = EXCLUDED.enabled, updated_at = NOW()`,
+          [connectionId, permType, userId, !!isEnabled]
+        );
       }
     }
 
-    if (updates.length > 0) {
-      const { error } = await supabase
-        .from('partner_permissions')
-        .upsert(updates, { onConflict: 'connection_id, permission_type' });
-      if (error) throw error;
-    }
+    // Audit trail
+    await pool.query(
+      `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id, metadata)
+       VALUES ($1, $2, 'PERMISSIONS_UPDATED', $3, $4)`,
+      [connectionId, userId, authCheck.ownerId, JSON.stringify(permissions)]
+    );
 
-    res.json({ success: true, message: 'Sharing settings updated successfully', updated: permissions });
+    res.json({ success: true, message: 'Sharing settings updated successfully', permissions, updated: permissions });
   } catch (err) {
     next(err);
   }
 };
 
-// 12. Permitted Data Access: Shared Cycle Window (Requires CYCLE_WINDOW=ON)
-const getSharedCycle = async (req, res, next) => {
+// 13. Permitted Member Status (Multi-Member, granularly authorized cycle & health data)
+const getMemberStatus = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const connectionId = req.params.connectionId;
 
-    const check = await verifyPartnerPermission(userId, connectionId, 'CYCLE_WINDOW');
-    if (!check.allowed) {
-      return res.status(check.status).json({ success: false, message: check.message });
+    // Verify connection is ACCEPTED and user is participant
+    const authCheck = await verifyPartnerPermission(userId, connectionId, null);
+    if (!authCheck.allowed) {
+      return res.status(authCheck.status).json({ success: false, message: authCheck.message, error: authCheck.message });
     }
 
-    const partnerId = check.ownerId;
+    const memberId = authCheck.ownerId; // Data owner
+    const conn = authCheck.connection;
+    const relationshipLabel = resolveRelationshipForUser(conn, userId);
 
-    // Fetch cycle settings
-    const { data: settings } = await supabase
-      .from('cycle_settings')
-      .select('cycle_length, period_duration')
-      .eq('user_id', partnerId)
-      .single();
+    // Fetch member's profile
+    const memberProfRes = await pool.query(
+      `SELECT u.email, u.cyclecare_id, p.display_name, p.profile_image AS avatar_url 
+       FROM users u LEFT JOIN profiles p ON u.id = p.user_id 
+       WHERE u.id = $1`,
+      [memberId]
+    );
+    const memberUser = memberProfRes.rows[0];
+    const memberName = resolveDisplayName(memberUser, memberUser?.email);
 
-    // Fetch latest period log
-    const { data: latestPeriod } = await supabase
-      .from('period_logs')
-      .select('start_date, end_date')
-      .eq('user_id', partnerId)
-      .order('start_date', { ascending: false })
-      .limit(1)
-      .single();
+    // Fetch all permissions granted by memberId in this connection
+    const permRes = await pool.query(
+      `SELECT permission_type, enabled FROM partner_permissions
+       WHERE connection_id = $1 AND (owner_id = $2 OR owner_id IS NULL)`,
+      [connectionId, memberId]
+    );
 
-    if (!latestPeriod) {
-      return res.json({
-        success: true,
-        shared_cycle: {
-          has_data: false,
-          message: 'Partner has not logged cycle data yet.'
-        }
-      });
-    }
+    const permMap = {};
+    ALL_PERMISSION_TYPES.forEach(t => { permMap[t] = false; });
+    permRes.rows.forEach(p => { permMap[p.permission_type] = p.enabled; });
 
-    const cycleLength = settings?.cycle_length || 28;
-    const periodDuration = settings?.period_duration || 5;
-    const lastStart = new Date(latestPeriod.start_date);
+    // Fetch member's cycle settings
+    const csRes = await pool.query('SELECT * FROM cycle_settings WHERE user_id = $1', [memberId]);
+    const settings = csRes.rows[0] || { cycle_length: 28, period_duration: 5 };
+
+    // Fetch member's latest period log
+    const plRes = await pool.query(
+      'SELECT * FROM period_logs WHERE user_id = $1 ORDER BY start_date DESC LIMIT 1',
+      [memberId]
+    );
+    const latestPeriod = plRes.rows[0];
+
+    // Compute cycle calculations
+    const cycleLength = settings.cycle_length || 28;
+    const periodDuration = settings.period_duration || 5;
+    const lastStart = latestPeriod ? new Date(latestPeriod.start_date) : new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const daysSinceStart = Math.max(0, Math.floor((now - lastStart) / (1000 * 60 * 60 * 24)));
+    const currentDayInCycle = (daysSinceStart % cycleLength) + 1;
+
     const nextEstimatedStart = new Date(lastStart.getTime() + cycleLength * 24 * 60 * 60 * 1000);
     const nextEstimatedEnd = new Date(nextEstimatedStart.getTime() + (periodDuration - 1) * 24 * 60 * 60 * 1000);
+    const daysUntilPeriod = Math.ceil((nextEstimatedStart - now) / (1000 * 60 * 60 * 24));
 
-    const now = new Date();
-    const daysUntilNext = Math.ceil((nextEstimatedStart - now) / (1000 * 60 * 60 * 24));
+    // Ovulation window estimation (approx cycleLength - 14)
+    const ovulationDay = Math.max(1, cycleLength - 14);
+    const ovulationDate = new Date(lastStart.getTime() + (ovulationDay - 1) * 24 * 60 * 60 * 1000);
+    const fertileStart = new Date(ovulationDate.getTime() - 4 * 24 * 60 * 60 * 1000);
+    const fertileEnd = new Date(ovulationDate.getTime() + 1 * 24 * 60 * 60 * 1000);
 
-    res.json({
+    // Determine current phase
+    let phaseName = 'Follicular Phase';
+    if (currentDayInCycle <= periodDuration) {
+      phaseName = 'Menstrual Phase';
+    } else if (currentDayInCycle >= ovulationDay - 1 && currentDayInCycle <= ovulationDay + 1) {
+      phaseName = 'Ovulation Window';
+    } else if (currentDayInCycle > ovulationDay + 1) {
+      phaseName = 'Luteal Phase';
+    }
+
+    const disclaimerText = 'Predictions are estimates for comfort, preparation, and mutual care only, not medical diagnosis.';
+
+    // Build permission-gated fields
+    const responsePayload = {
       success: true,
-      shared_cycle: {
-        has_data: true,
-        estimated_window_start: nextEstimatedStart.toISOString().split('T')[0],
-        estimated_window_end: nextEstimatedEnd.toISOString().split('T')[0],
-        days_until_window: daysUntilNext > 0 ? daysUntilNext : 0,
-        support_tip: daysUntilNext <= 3
-          ? 'Preparation window is approaching. Perfect time to prepare comfort care and essentials!'
-          : 'Normal cycle support window active.',
-        disclaimer: 'Predictions are estimates for care preparation only, not medical diagnosis.'
-      }
-    });
+      connection_id: connectionId,
+      relationship: relationshipLabel,
+      member: {
+        id: memberId,
+        display_name: memberName,
+        cyclecare_id: memberUser?.cyclecare_id ? `@${memberUser.cyclecare_id}` : null,
+        initials: getInitials(memberName)
+      },
+      permissions: permMap,
+      disclaimer: disclaimerText,
+      last_updated: new Date().toISOString()
+    };
+
+    // 1. CYCLE_PHASE
+    if (permMap.CYCLE_PHASE) {
+      responsePayload.cycle_phase = {
+        permitted: true,
+        phase: phaseName,
+        current_day: currentDayInCycle,
+        cycle_length: cycleLength,
+        description: `Day ${currentDayInCycle} of ${cycleLength} • ${phaseName}`,
+        medical_disclaimer: disclaimerText
+      };
+    } else {
+      responsePayload.cycle_phase = { permitted: false, status: 'NOT_SHARED', medical_disclaimer: disclaimerText };
+    }
+
+    // 2. CYCLE_WINDOW
+    if (permMap.CYCLE_WINDOW) {
+      responsePayload.cycle_window = {
+        permitted: true,
+        estimated_start: nextEstimatedStart.toISOString().split('T')[0],
+        estimated_end: nextEstimatedEnd.toISOString().split('T')[0],
+        days_until_period: daysUntilPeriod > 0 ? daysUntilPeriod : 0,
+        period_status: daysUntilPeriod <= 0 ? 'Window Active' : `Approaching in ~${daysUntilPeriod} days`,
+        support_tip: daysUntilPeriod <= 3
+          ? 'Comfort window is approaching. Perfect time to prepare soothing care essentials!'
+          : 'Normal cycle support window active.'
+      };
+    } else {
+      responsePayload.cycle_window = { permitted: false, status: 'NOT_SHARED' };
+    }
+
+    // 3. OVULATION_WINDOW
+    if (permMap.OVULATION_WINDOW) {
+      responsePayload.ovulation_window = {
+        permitted: true,
+        estimated_ovulation: ovulationDate.toISOString().split('T')[0],
+        fertile_window_start: fertileStart.toISOString().split('T')[0],
+        fertile_window_end: fertileEnd.toISOString().split('T')[0]
+      };
+    } else {
+      responsePayload.ovulation_window = { permitted: false, status: 'NOT_SHARED' };
+    }
+
+    // 4. SYMPTOMS
+    if (permMap.SYMPTOMS) {
+      const symRes = await pool.query(
+        `SELECT symptom_name, severity, log_date FROM symptom_logs 
+         WHERE user_id = $1 ORDER BY log_date DESC LIMIT 5`,
+        [memberId]
+      );
+      responsePayload.symptoms = {
+        permitted: true,
+        items: symRes.rows.map(s => s.symptom_name),
+        recent_symptoms: symRes.rows.map(s => s.symptom_name)
+      };
+    } else {
+      responsePayload.symptoms = { permitted: false, status: 'NOT_SHARED', items: [] };
+    }
+
+    // 5. CARE_REQUESTS
+    if (permMap.CARE_REQUESTS || permMap.CARE_KIT) {
+      const crRes = await pool.query(
+        `SELECT content, metadata, created_at FROM circle_messages 
+         WHERE connection_id = $1 AND message_type = 'CARE_REQUEST'
+         ORDER BY created_at DESC LIMIT 3`,
+        [connectionId]
+      );
+      responsePayload.care_requests = {
+        permitted: true,
+        active_requests: crRes.rows
+      };
+    } else {
+      responsePayload.care_requests = { permitted: false, status: 'NOT_SHARED' };
+    }
+
+    // 6. REMINDERS
+    if (permMap.REMINDERS) {
+      responsePayload.reminders = {
+        permitted: true,
+        notes: 'Reminders enabled by member'
+      };
+    } else {
+      responsePayload.reminders = { permitted: false, status: 'NOT_SHARED' };
+    }
+
+    responsePayload.status = {
+      cycle_phase: responsePayload.cycle_phase,
+      cycle_window: responsePayload.cycle_window,
+      ovulation_window: responsePayload.ovulation_window,
+      symptoms: responsePayload.symptoms,
+      care_requests: responsePayload.care_requests,
+      reminders: responsePayload.reminders
+    };
+
+    // Audit trail (Data Access)
+    await pool.query(
+      `INSERT INTO sharing_audit_events (connection_id, actor_id, event_type, target_user_id, metadata)
+       VALUES ($1, $2, 'DATA_ACCESSED', $3, $4)`,
+      [connectionId, userId, memberId, JSON.stringify({ permitted_fields: Object.keys(permMap).filter(k => permMap[k]) })]
+    );
+
+    res.json(responsePayload);
   } catch (err) {
     next(err);
   }
 };
 
-// 13. Permitted Data Access: Shared Care Kit (Requires CARE_KIT=ON)
+// 14. Permitted Data Access: Shared Cycle Window (Preserved existing endpoint)
+const getSharedCycle = async (req, res, next) => {
+  return getMemberStatus(req, res, next);
+};
+
+// 15. Permitted Data Access: Shared Care Kit (Requires CARE_KIT=ON)
 const getSharedCareKit = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -587,7 +1018,7 @@ const getSharedCareKit = async (req, res, next) => {
   }
 };
 
-// 14. Permitted Data Access: Shared Wishlist (Requires WISHLIST=ON)
+// 16. Permitted Data Access: Shared Wishlist (Requires WISHLIST=ON)
 const getSharedWishlist = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -611,7 +1042,7 @@ const getSharedWishlist = async (req, res, next) => {
   }
 };
 
-// 15. Create Care Package Order
+// 17. Create Care Package Order
 const createCarePackage = async (req, res, next) => {
   try {
     const buyerId = req.user.id;
@@ -634,7 +1065,6 @@ const createCarePackage = async (req, res, next) => {
       totalAmount += (it.price || 199) * (it.quantity || 1);
     });
 
-    // Create Order with buyer_id and recipient_user_id
     const { data: order, error } = await supabase
       .from('orders')
       .insert([{
@@ -651,12 +1081,11 @@ const createCarePackage = async (req, res, next) => {
 
     if (error) throw error;
 
-    // Send supportive notification to recipient
     try {
       await supabase.from('notifications').insert([{
         user_id: recipientId,
         title: 'Care Package Sent To You! 🎁',
-        body: `Your partner sent you a care package: "${message || 'Take care. I am here for you.'}"`,
+        body: `Your family member sent you a care package: "${message || 'Take care. I am here for you.'}"`,
         type: 'CARE_PACKAGE_RECEIVED'
       }]);
     } catch (_) {}
@@ -671,7 +1100,7 @@ const createCarePackage = async (req, res, next) => {
   }
 };
 
-// 16. Permitted Data Access: Shared Address (Requires DELIVERY_ADDRESS=ON)
+// 18. Permitted Data Access: Shared Address (Requires DELIVERY_ADDRESS=ON)
 const getSharedAddress = async (req, res, next) => {
   try {
     const userId = req.user.id;
@@ -683,7 +1112,7 @@ const getSharedAddress = async (req, res, next) => {
     }
 
     const partnerId = check.ownerId;
-    const { data: addr, error } = await supabase
+    const { data: addr } = await supabase
       .from('shared_addresses')
       .select('*')
       .eq('owner_user_id', partnerId)
@@ -692,6 +1121,31 @@ const getSharedAddress = async (req, res, next) => {
       .single();
 
     res.json({ success: true, address: addr || null });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 19. Get Connection Audit Trail
+const getAuditTrail = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const connectionId = req.params.connectionId;
+
+    const authCheck = await verifyPartnerPermission(userId, connectionId, null);
+    if (!authCheck.allowed) {
+      return res.status(authCheck.status).json({ success: false, message: authCheck.message });
+    }
+
+    const auditRes = await pool.query(
+      `SELECT id, event_type, actor_id, metadata, created_at 
+       FROM sharing_audit_events 
+       WHERE connection_id = $1 
+       ORDER BY created_at DESC LIMIT 30`,
+      [connectionId]
+    );
+
+    res.json({ success: true, events: auditRes.rows });
   } catch (err) {
     next(err);
   }
@@ -707,11 +1161,14 @@ module.exports = {
   declineRequest,
   revokeConnection,
   blockPartner,
+  updateRelationship,
   getPermissions,
   updatePermissions,
+  getMemberStatus,
   getSharedCycle,
   getSharedCareKit,
   getSharedWishlist,
   createCarePackage,
-  getSharedAddress
+  getSharedAddress,
+  getAuditTrail
 };

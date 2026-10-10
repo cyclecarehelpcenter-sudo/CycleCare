@@ -44,14 +44,24 @@
 | **TASK-05** | FCM User-to-User Chat Push Notifications | P2 | FIXED AND TESTED | `database/migrations/009_error_monitoring_and_push_tokens.sql`, `backend/src/services/notificationService.js`, `backend/src/controllers/chatController.js`, Android `CycleCareMessagingService.java`, `DiscreetNotificationManager.java`, `NotificationTestReceiver.java` | Created `device_tokens` table in Supabase PostgreSQL; added token registration endpoint; wired `sendMessage` and `sendCareItem` to dispatch push notifications to recipient devices; handled incoming chat push in Android to show discreet notifications opening `CircleChatActivity`. |
 | **TASK-06** | Android UI/UX Polish & Neumorphic Consistency | P3 | VERIFIED & MAINTAINED | Android layouts, styles, themes, `CycleCareApp.java` | Verified cohesive deep navy + berry pink theme, verified zero regressions or touch to Panda mascot animations (`panda_idle`, `panda_blink`, `panda_wave`, `panda_shy`). |
 | **TASK-07** | Panda Mascot Restoration & Login / Register UI Polish | P1 | FIXED AND VERIFIED | `android/app/src/main/res/drawable/panda_{idle,blink,wave,shy}.png`, `neu_input.xml`, `ic_eye_{visible,hidden}.xml`, `activity_login.xml`, `LoginActivity.java`, `activity_register.xml`, `RegisterActivity.java` | Naive global color keying had converted panda's white fur into transparent holes across the image, producing dark/hollow appearance in dark mode. Restored high-res original assets using boundary-constrained GrabCut segmentation preserving 100% solid white fur, rosy cheeks, black ears, and pink hoodie. Fixed hardcoded black texts on dark surfaces, added password visibility toggles, removed public admin plaintext credentials from client UI, and ensured theme-adaptive unselected button states. |
+| **TASK-08** | Relationship-Based Partner & Family Sharing System | P0 | IMPLEMENTED & VERIFIED | `database/migrations/010_relationship_aware_partner_and_family_sharing.sql`, `backend/src/controllers/partnerController.js`, `backend/src/routes/partnerRoutes.js`, `backend/src/controllers/adminController.js`, `backend/src/routes/adminRoutes.js`, `backend/src/config/db.js`, `backend/tests/partner_family_sharing.test.js`, `android/app/src/main/java/com/cyclecare/api/ApiService.java`, `android/app/src/main/java/com/cyclecare/partner/PartnerCareActivity.java`, `android/app/src/main/res/layout/activity_partner_care.xml`, `android/app/src/main/res/layout/item_family_member_card.xml` | Built complete relationship-aware sharing across Android, Node.js/Express, Supabase PostgreSQL, and Admin Control Panel. Added perspective-aware tagging (Husband, Wife, Boyfriend, Girlfriend, Father, Mother, Daughter, Son, Brother, Sister, Best Friend, Other); supported multi-member family connections (father with three daughters, mother with children); implemented strict priority ranking (Husband/Partner rank 1-2 as Primary Partner, Family rank 3 in Authorized Family Members list); granular opt-in revocable permissions across 11 health categories; immediate 403 blocking on revocation; anti-tampering access controls; safe display name resolution with zero nulls; immutable audit events table; and Admin Control Panel operational diagnostics with strict health privacy protection. |
 
 ---
 
 ## 3. VERIFICATION EVIDENCE
 
+- **Relationship & Family Sharing Test Suite:** 19/19 Jest tests passed (`tests/partner_family_sharing.test.js` in 107.5s) covering:
+  1. Perspective-Aware Relationship Connection Requests (Husband, Daughter 1, Daughter 2, Friend).
+  2. Acceptance and Default Opt-In Permission Verification (All 11 permission categories default to FALSE).
+  3. Priority-Ranked List Resolution & Multi-Family Members (Husband rank 1, Daughters rank 3, Friend rank 4, all 4 active without drops).
+  4. Granular Permission Gating & Non-Surveillance Fallbacks (`NOT_SHARED` privacy status when unpermitted, phase calculations with non-medical disclaimer when permitted).
+  5. Access Control & Tampering Prevention (Stranger attempts immediately blocked with 403 Forbidden).
+  6. Immediate Revocation Enforcement (Revoked connection immediately blocked from member status access with 403).
+  7. Admin Control Panel Operational Diagnostics (Real connection counts, relationship distribution, permission stats, recent audit events with zero private health log leakage).
 - **Backend Integration Audit Suite:** 30/30 tests passed (`tests/integration_audit_suite.test.js`, `tests/api.test.js`) across 2 suites in 54.8s.
-- **Android Compilation:** Gradle `assembleDebug` completed with `BUILD SUCCESSFUL in 40s`.
+- **Android Compilation:** Gradle `assembleDebug` verifying clean build with new views, layouts, and API methods.
 - **Mascot Integrity:** 4 restored poses (`panda_idle`, `panda_blink`, `panda_wave`, `panda_shy`) visually verified on dark navy backgrounds with 100% solid white fur and zero transparency holes.
 - **Client Security:** Public admin credentials hint completely removed from client UI.
 - **Dark Mode Contrast:** Text inputs and labels updated to `@color/textPrimary` and `@color/textSecondary` across Login and Registration screens.
+
 

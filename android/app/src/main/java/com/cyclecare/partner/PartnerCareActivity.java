@@ -44,9 +44,14 @@ public class PartnerCareActivity extends AppCompatActivity {
     // Connected views
     private LinearLayout llConnectedView;
     private TextView tvPartnerName, tvPartnerHandle;
-    private Button btnSendCarePackage, btnManagePermissions, btnDisconnectPartner;
+    private TextView tvPartnerRelationshipBadge, tvPartnerPrimaryBadge;
+    private Button btnSendCarePackage, btnManagePermissions, btnDisconnectPartner, btnEditRelationship;
     private LinearLayout cardSharedCycle;
     private TextView tvCycleWindowDates, tvCycleWindowTip;
+
+    // Multi-member family sharing
+    private LinearLayout llFamilyMembersSection;
+    private LinearLayout llFamilyMembersList;
 
     // Connect input views
     private LinearLayout llConnectInputView;
@@ -124,6 +129,9 @@ public class PartnerCareActivity extends AppCompatActivity {
         llConnectedView = findViewById(R.id.ll_connected_view);
         tvPartnerName = findViewById(R.id.tv_partner_name);
         tvPartnerHandle = findViewById(R.id.tv_partner_handle);
+        tvPartnerRelationshipBadge = findViewById(R.id.tv_partner_relationship_badge);
+        tvPartnerPrimaryBadge = findViewById(R.id.tv_partner_primary_badge);
+        btnEditRelationship = findViewById(R.id.btn_edit_relationship);
         Button btnOpenCircleChat = findViewById(R.id.btn_open_circle_chat);
         if (btnOpenCircleChat != null) {
             btnOpenCircleChat.setOnClickListener(v -> {
@@ -140,6 +148,10 @@ public class PartnerCareActivity extends AppCompatActivity {
         cardSharedCycle = findViewById(R.id.card_shared_cycle);
         tvCycleWindowDates = findViewById(R.id.tv_cycle_window_dates);
         tvCycleWindowTip = findViewById(R.id.tv_cycle_window_tip);
+
+        // Family members section
+        llFamilyMembersSection = findViewById(R.id.ll_family_members_section);
+        llFamilyMembersList = findViewById(R.id.ll_family_members_list);
 
         llConnectInputView = findViewById(R.id.ll_connect_input_view);
         etPartnerId = findViewById(R.id.et_partner_id);
@@ -169,6 +181,16 @@ public class PartnerCareActivity extends AppCompatActivity {
         btnManagePermissions.setOnClickListener(v -> {
             showPermissionsDialog(currentConnectionId != null ? currentConnectionId : "demo_connection");
         });
+
+        if (btnEditRelationship != null) {
+            btnEditRelationship.setOnClickListener(v -> {
+                if (currentConnectionId != null) {
+                    showEditRelationshipDialog(currentConnectionId, currentPartnerName);
+                } else {
+                    Toast.makeText(this, "No active partner connection selected", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
 
         btnDisconnectPartner.setOnClickListener(v -> {
             if (currentConnectionId != null) {
@@ -317,26 +339,41 @@ public class PartnerCareActivity extends AppCompatActivity {
             @Override
             public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    List<Map<String, Object>> activeList = (List<Map<String, Object>>) response.body().get("active");
-                    List<Map<String, Object>> incomingList = (List<Map<String, Object>>) response.body().get("incoming");
+                    Map<String, Object> body = response.body();
+                    Map<String, Object> primaryPartner = (Map<String, Object>) body.get("primary_partner");
+                    List<Map<String, Object>> familyMembers = (List<Map<String, Object>>) body.get("family_members");
+                    List<Map<String, Object>> allActive = (List<Map<String, Object>>) body.get("all_active");
+                    if (allActive == null) {
+                        allActive = (List<Map<String, Object>>) body.get("active");
+                    }
+                    List<Map<String, Object>> incomingList = (List<Map<String, Object>>) body.get("incoming");
 
-                    if (activeList != null && !activeList.isEmpty()) {
-                        Map<String, Object> active = activeList.get(0);
-                        currentConnectionId = String.valueOf(active.get("id"));
-                        Map<String, Object> partnerInfo = (Map<String, Object>) active.get("partner");
-                        if (partnerInfo != null) {
-                            currentPartnerName = String.valueOf(partnerInfo.get("display_name"));
-                            tvPartnerName.setText(currentPartnerName);
-                            tvPartnerHandle.setText(String.valueOf(partnerInfo.get("cyclecare_id")));
-                        }
-
-                        llConnectedView.setVisibility(View.VISIBLE);
-                        llConnectInputView.setVisibility(View.GONE);
-                        loadSharedCycle(currentConnectionId);
+                    // 1. Primary Partner Resolution
+                    if (primaryPartner != null) {
+                        bindPrimaryPartnerCard(primaryPartner);
+                    } else if (allActive != null && !allActive.isEmpty()) {
+                        bindPrimaryPartnerCard(allActive.get(0));
                     } else {
                         currentConnectionId = null;
                         llConnectedView.setVisibility(View.GONE);
+                    }
+
+                    // 2. Family Members List Resolution (Multi-member family support)
+                    if (familyMembers != null && !familyMembers.isEmpty()) {
+                        llFamilyMembersSection.setVisibility(View.VISIBLE);
+                        renderFamilyMembers(familyMembers);
+                    } else {
+                        llFamilyMembersSection.setVisibility(View.GONE);
+                        if (llFamilyMembersList != null) {
+                            llFamilyMembersList.removeAllViews();
+                        }
+                    }
+
+                    // 3. Connect Input View Toggle
+                    if (primaryPartner == null && (allActive == null || allActive.isEmpty())) {
                         llConnectInputView.setVisibility(View.VISIBLE);
+                    } else {
+                        llConnectInputView.setVisibility(View.GONE);
                     }
 
                     renderIncomingRequests(incomingList);
@@ -348,6 +385,183 @@ public class PartnerCareActivity extends AppCompatActivity {
                 // Ignore transient network errors
             }
         });
+    }
+
+    private void bindPrimaryPartnerCard(Map<String, Object> partnerMap) {
+        currentConnectionId = String.valueOf(partnerMap.get("id"));
+        Map<String, Object> partnerInfo = (Map<String, Object>) partnerMap.get("partner_profile");
+        if (partnerInfo == null) {
+            partnerInfo = (Map<String, Object>) partnerMap.get("partner");
+        }
+
+        if (partnerInfo != null) {
+            String name = String.valueOf(partnerInfo.get("display_name"));
+            currentPartnerName = (!TextUtils.isEmpty(name) && !"null".equalsIgnoreCase(name)) ? name : "Partner";
+            tvPartnerName.setText(currentPartnerName);
+            String handle = String.valueOf(partnerInfo.get("cyclecare_id"));
+            tvPartnerHandle.setText((!TextUtils.isEmpty(handle) && !"null".equalsIgnoreCase(handle)) ? handle : "");
+        } else {
+            currentPartnerName = "Partner";
+            tvPartnerName.setText("Partner");
+            tvPartnerHandle.setText("");
+        }
+
+        String rel = String.valueOf(partnerMap.get("resolved_relationship"));
+        if (TextUtils.isEmpty(rel) || "null".equalsIgnoreCase(rel)) {
+            rel = String.valueOf(partnerMap.get("relationship"));
+        }
+        if (tvPartnerRelationshipBadge != null) {
+            tvPartnerRelationshipBadge.setText((!TextUtils.isEmpty(rel) && !"null".equalsIgnoreCase(rel)) ? rel : "Partner");
+        }
+
+        llConnectedView.setVisibility(View.VISIBLE);
+        loadSharedCycle(currentConnectionId);
+    }
+
+    private void renderFamilyMembers(List<Map<String, Object>> members) {
+        if (llFamilyMembersList == null) return;
+        llFamilyMembersList.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(this);
+
+        for (Map<String, Object> member : members) {
+            View card = inflater.inflate(R.layout.item_family_member_card, llFamilyMembersList, false);
+
+            TextView tvInitials = card.findViewById(R.id.tv_member_initials);
+            TextView tvName = card.findViewById(R.id.tv_member_name);
+            TextView tvHandle = card.findViewById(R.id.tv_member_handle);
+            TextView tvBadge = card.findViewById(R.id.tv_member_relationship_badge);
+            TextView tvRank = card.findViewById(R.id.tv_member_priority_rank);
+            Button btnStatus = card.findViewById(R.id.btn_member_status);
+            Button btnChat = card.findViewById(R.id.btn_member_chat);
+            Button btnSettings = card.findViewById(R.id.btn_member_settings);
+
+            String connId = String.valueOf(member.get("id"));
+            Map<String, Object> prof = (Map<String, Object>) member.get("partner_profile");
+            if (prof == null) prof = (Map<String, Object>) member.get("partner");
+
+            String rawName = prof != null ? String.valueOf(prof.get("display_name")) : "Family Member";
+            String mName = (!TextUtils.isEmpty(rawName) && !"null".equalsIgnoreCase(rawName)) ? rawName : "Family Member";
+            String mHandle = prof != null ? String.valueOf(prof.get("cyclecare_id")) : "";
+            String mRel = String.valueOf(member.get("resolved_relationship"));
+            if (TextUtils.isEmpty(mRel) || "null".equalsIgnoreCase(mRel)) {
+                mRel = String.valueOf(member.get("relationship"));
+            }
+            if (TextUtils.isEmpty(mRel) || "null".equalsIgnoreCase(mRel)) mRel = "Family";
+
+            tvName.setText(mName);
+            tvHandle.setText((!TextUtils.isEmpty(mHandle) && !"null".equalsIgnoreCase(mHandle)) ? mHandle : "");
+            tvBadge.setText(mRel);
+            tvInitials.setText(mName.length() >= 2 ? mName.substring(0, 2).toUpperCase() : mName.substring(0, 1).toUpperCase());
+            tvRank.setText("Priority: " + (member.get("priority_rank") != null ? member.get("priority_rank") : "3"));
+
+            final String fConnId = connId;
+            final String fName = mName;
+            final String fRel = mRel;
+
+            btnStatus.setOnClickListener(v -> showMemberStatusDialog(fConnId, fName, fRel));
+
+            btnChat.setOnClickListener(v -> {
+                Intent chatIntent = new Intent(this, com.cyclecare.chat.CircleChatActivity.class);
+                chatIntent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_CONNECTION_ID, fConnId);
+                chatIntent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_CONTACT_NAME, fName);
+                chatIntent.putExtra(com.cyclecare.chat.CircleChatActivity.EXTRA_RELATIONSHIP, fRel);
+                startActivity(chatIntent);
+            });
+
+            btnSettings.setOnClickListener(v -> showPermissionsDialog(fConnId));
+
+            llFamilyMembersList.addView(card);
+        }
+    }
+
+    private void showMemberStatusDialog(String connId, String name, String relationship) {
+        apiService.getMemberStatus(connId).enqueue(new Callback<Map<String, Object>>() {
+            @Override
+            public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    Map<String, Object> body = response.body();
+                    Map<String, Object> cyclePhase = (Map<String, Object>) body.get("cycle_phase");
+                    if (cyclePhase == null && body.get("status") instanceof Map) {
+                        cyclePhase = (Map<String, Object>) ((Map<String, Object>) body.get("status")).get("cycle_phase");
+                    }
+                    Map<String, Object> cycleWindow = (Map<String, Object>) body.get("cycle_window");
+                    if (cycleWindow == null && body.get("status") instanceof Map) {
+                        cycleWindow = (Map<String, Object>) ((Map<String, Object>) body.get("status")).get("cycle_window");
+                    }
+
+                    StringBuilder sb = new StringBuilder();
+                    sb.append("Relationship: ").append(relationship).append("\n\n");
+
+                    if (cyclePhase != null && Boolean.TRUE.equals(cyclePhase.get("permitted"))) {
+                        sb.append("Cycle Phase: ").append(cyclePhase.get("phase")).append("\n");
+                        if (cyclePhase.get("description") != null) {
+                            sb.append(cyclePhase.get("description")).append("\n");
+                        }
+                    } else {
+                        sb.append("Cycle Phase: Private (Not Shared)\n");
+                    }
+
+                    if (cycleWindow != null && Boolean.TRUE.equals(cycleWindow.get("permitted"))) {
+                        sb.append("\nEstimated Window: ").append(cycleWindow.get("estimated_start"))
+                          .append(" to ").append(cycleWindow.get("estimated_end")).append("\n");
+                        if (cycleWindow.get("support_tip") != null) {
+                            sb.append("\nTip: ").append(cycleWindow.get("support_tip")).append("\n");
+                        }
+                    } else {
+                        sb.append("Preparation Window: Private (Not Shared)\n");
+                    }
+
+                    sb.append("\nNote: Predictions are estimates for mutual comfort and care only, not medical diagnosis.");
+
+                    new AlertDialog.Builder(PartnerCareActivity.this)
+                            .setTitle(name + " • Sharing Status")
+                            .setMessage(sb.toString())
+                            .setPositiveButton("OK", null)
+                            .show();
+                } else {
+                    Toast.makeText(PartnerCareActivity.this, "Could not fetch status: Restricted", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                Toast.makeText(PartnerCareActivity.this, "Network error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    private void showEditRelationshipDialog(String connId, String name) {
+        final String[] options = new String[] {
+            "Husband", "Wife", "Boyfriend", "Girlfriend",
+            "Father", "Mother", "Daughter", "Son",
+            "Sister", "Brother", "Best Friend", "Family", "Other"
+        };
+
+        new AlertDialog.Builder(this)
+                .setTitle("Select Relationship for " + name)
+                .setItems(options, (dialog, which) -> {
+                    String selected = options[which];
+                    Map<String, Object> body = new HashMap<>();
+                    body.put("relationship", selected);
+                    apiService.updatePartnerRelationship(connId, body).enqueue(new Callback<Map<String, Object>>() {
+                        @Override
+                        public void onResponse(Call<Map<String, Object>> call, Response<Map<String, Object>> response) {
+                            if (response.isSuccessful()) {
+                                Toast.makeText(PartnerCareActivity.this, "Relationship updated to " + selected, Toast.LENGTH_SHORT).show();
+                                loadPartnerData();
+                            } else {
+                                Toast.makeText(PartnerCareActivity.this, "Failed to update relationship", Toast.LENGTH_SHORT).show();
+                            }
+                        }
+
+                        @Override
+                        public void onFailure(Call<Map<String, Object>> call, Throwable t) {
+                            Toast.makeText(PartnerCareActivity.this, "Error: " + t.getMessage(), Toast.LENGTH_SHORT).show();
+                        }
+                    });
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void loadSharedCycle(String connectionId) {

@@ -76,6 +76,7 @@ app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/partners', partnerRoutes);
+app.use('/api/v1/partner', partnerRoutes);
 app.use('/api/v1/deliveries', deliveryRoutes);
 app.use('/api/v1/delivery', deliveryRoutes);
 app.use('/api/v1/addresses', addressesRoutes);

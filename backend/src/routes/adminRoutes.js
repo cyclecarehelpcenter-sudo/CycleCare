@@ -43,6 +43,7 @@ const monitoringController = require('../controllers/monitoringController');
 router.get('/audit-logs', adminController.getAuditLogs);
 router.get('/deliveries', adminController.getAdminDeliveries);
 router.get('/chat-logs', adminController.getChatLogs);
+router.get('/sharing/diagnostics', adminController.getSharingDiagnostics);
 
 // Global Error Monitoring Endpoints
 router.get('/errors', monitoringController.getAdminErrors);

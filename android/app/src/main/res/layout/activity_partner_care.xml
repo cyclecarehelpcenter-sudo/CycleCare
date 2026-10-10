@@ -189,6 +189,39 @@
                                 android:textSize="12sp"
                                 android:fontFamily="monospace" />
 
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:layout_marginTop="3dp">
+
+                                <TextView
+                                    android:id="@+id/tv_partner_relationship_badge"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:background="@drawable/bg_badge_period"
+                                    android:paddingHorizontal="8dp"
+                                    android:paddingVertical="2dp"
+                                    android:text="Husband"
+                                    android:textColor="@color/colorPrimary"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/tv_partner_primary_badge"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="6dp"
+                                    android:background="@drawable/bg_badge_ovulation"
+                                    android:paddingHorizontal="8dp"
+                                    android:paddingVertical="2dp"
+                                    android:text="Primary Partner"
+                                    android:textColor="@color/colorMintGreenDark"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold" />
+
+                            </LinearLayout>
+
                         </LinearLayout>
 
                         <TextView
@@ -240,8 +273,22 @@
                             android:layout_width="0dp"
                             android:layout_height="42dp"
                             android:layout_weight="1"
-                            android:layout_marginEnd="6dp"
+                            android:layout_marginEnd="4dp"
                             android:text="Sharing Settings"
+                            android:textColor="@color/colorPrimary"
+                            android:textSize="11sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="21dp"
+                            app:strokeColor="@color/colorPrimary" />
+
+                        <Button
+                            android:id="@+id/btn_edit_relationship"
+                            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="42dp"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="4dp"
+                            android:text="Tag"
                             android:textColor="@color/colorPrimary"
                             android:textSize="11sp"
                             android:textStyle="bold"
@@ -302,6 +349,41 @@
                         android:text="Upcoming window is in ~8 days. Great time to stock soothing teas and comfort patches."
                         android:textColor="@color/textSecondary"
                         android:textSize="12sp" />
+
+                </LinearLayout>
+
+                <!-- Authorized Family Members & Trusted Circle Section -->
+                <LinearLayout
+                    android:id="@+id/ll_family_members_section"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="AUTHORIZED FAMILY &amp; CIRCLE MEMBERS"
+                        android:textColor="#000000"
+                        android:textSize="12sp"
+                        android:textStyle="bold"
+                        android:letterSpacing="0.06" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:layout_marginBottom="10dp"
+                        android:text="Prioritized family sharing with independent privacy controls."
+                        android:textColor="@color/textSecondary"
+                        android:textSize="11sp" />
+
+                    <LinearLayout
+                        android:id="@+id/ll_family_members_list"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
 
                 </LinearLayout>
 

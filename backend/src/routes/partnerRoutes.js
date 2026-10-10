@@ -16,16 +16,20 @@ router.post('/invite', partnerController.createInvite);
 // Connections Lifecycle
 router.post('/request', partnerController.sendConnectionRequest);
 router.get('/requests', partnerController.listRequests);
+router.get('/connections', partnerController.listRequests);
 router.post('/requests/:id/accept', partnerController.acceptRequest);
 router.post('/requests/:id/decline', partnerController.declineRequest);
 router.delete('/:connectionId', partnerController.revokeConnection);
 router.post('/:connectionId/block', partnerController.blockPartner);
+router.patch('/:connectionId/relationship', partnerController.updateRelationship);
+router.get('/:connectionId/audit-trail', partnerController.getAuditTrail);
 
 // Granular Permissions Management
 router.get('/:connectionId/permissions', partnerController.getPermissions);
 router.put('/:connectionId/permissions', partnerController.updatePermissions);
 
 // Permitted Data Access (Server-side enforced)
+router.get('/:connectionId/member-status', partnerController.getMemberStatus);
 router.get('/:connectionId/shared-cycle', partnerController.getSharedCycle);
 router.get('/:connectionId/care-kit', partnerController.getSharedCareKit);
 router.get('/:connectionId/wishlist', partnerController.getSharedWishlist);

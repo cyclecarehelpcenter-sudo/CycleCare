@@ -591,6 +591,68 @@ const getAuditLogs = async (req, res, next) => {
   }
 };
 
+const getSharingDiagnostics = async (req, res, next) => {
+  try {
+    const statusCountsRes = await pool.query(`
+      SELECT 
+        status, 
+        COUNT(*)::int AS count 
+      FROM partner_connections 
+      GROUP BY status
+    `);
+    const statusCounts = {};
+    statusCountsRes.rows.forEach(r => { statusCounts[r.status] = r.count; });
+
+    const relationshipDistRes = await pool.query(`
+      SELECT 
+        COALESCE(requester_relationship, relationship, 'Unspecified') AS rel_type,
+        COUNT(*)::int AS count
+      FROM partner_connections
+      WHERE status = 'ACCEPTED'
+      GROUP BY rel_type
+      ORDER BY count DESC
+    `);
+
+    const permStatsRes = await pool.query(`
+      SELECT 
+        permission_type,
+        COUNT(*)::int AS total_records,
+        COUNT(*) FILTER (WHERE enabled = true)::int AS granted_count
+      FROM partner_permissions
+      GROUP BY permission_type
+      ORDER BY granted_count DESC
+    `);
+
+    const auditRes = await pool.query(`
+      SELECT 
+        sae.id,
+        sae.connection_id,
+        sae.event_type,
+        sae.target_user_id,
+        sae.metadata,
+        sae.created_at,
+        actor.email AS actor_email
+      FROM sharing_audit_events sae
+      LEFT JOIN users actor ON sae.actor_id = actor.id
+      ORDER BY sae.created_at DESC
+      LIMIT 50
+    `);
+
+    res.json({
+      success: true,
+      diagnostics: {
+        totalConnections: Object.values(statusCounts).reduce((a, b) => a + b, 0),
+        statusBreakdown: statusCounts,
+        relationshipDistribution: relationshipDistRes.rows,
+        permissionStats: permStatsRes.rows,
+        recentAuditEvents: auditRes.rows
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getDashboardStats,
   getUsers,
@@ -605,5 +667,6 @@ module.exports = {
   updateOrderStatus,
   getAdminDeliveries,
   getChatLogs,
-  getAuditLogs
+  getAuditLogs,
+  getSharingDiagnostics
 };

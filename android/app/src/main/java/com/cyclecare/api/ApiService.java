@@ -11,6 +11,7 @@ import retrofit2.Call;
 import retrofit2.http.Body;
 import retrofit2.http.DELETE;
 import retrofit2.http.GET;
+import retrofit2.http.PATCH;
 import retrofit2.http.POST;
 import retrofit2.http.PUT;
 import retrofit2.http.Path;
@@ -150,6 +151,18 @@ public interface ApiService {
 
     @GET("partners/requests")
     Call<Map<String, Object>> getPartnerRequests();
+
+    @GET("partners/connections")
+    Call<Map<String, Object>> getPartnerConnections();
+
+    @PATCH("partners/{id}/relationship")
+    Call<Map<String, Object>> updatePartnerRelationship(@Path("id") String connectionId, @Body Map<String, Object> body);
+
+    @GET("partners/{id}/member-status")
+    Call<Map<String, Object>> getMemberStatus(@Path("id") String connectionId);
+
+    @GET("partners/{id}/audit-trail")
+    Call<Map<String, Object>> getPartnerAuditTrail(@Path("id") String connectionId);
 
     @POST("partners/requests/{id}/accept")
     Call<Map<String, Object>> acceptPartnerRequest(@Path("id") String requestId);
