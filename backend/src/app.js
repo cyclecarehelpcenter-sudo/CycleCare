@@ -27,6 +27,9 @@ const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
 
+// Trust reverse proxies on cloud platforms like Render
+app.set('trust proxy', 1);
+
 // Security Middlewares
 app.use(helmet({
   contentSecurityPolicy: {
@@ -42,10 +45,19 @@ app.use(helmet({
 }));
 app.use(cors());
 
-// Rate Limiting
+// Rate Limiting (Skip for authenticated admin requests and admin views to prevent 429 lockouts)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 200, // Limit each IP to 200 requests per windowMs
+  max: 1000, // Increased allowance for modern single-page apps
+  skip: (req) => {
+    const adminKey = req.headers['x-admin-key'];
+    if (adminKey) return true;
+    const url = req.originalUrl || req.url || '';
+    if (url.includes('/admin') || url.includes('/products') || url.includes('/health')) return true;
+    return false;
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { success: false, message: 'Too many requests, please try again later.', code: 'RATE_LIMIT_EXCEEDED' }
 });
 app.use('/api/', limiter);

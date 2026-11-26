@@ -32,6 +32,7 @@ router.get('/users/:id/cycle-logs', adminController.getUserCycleLogs);
 
 router.get('/products', adminController.getAdminProducts);
 router.post('/products', adminController.createProduct);
+router.put('/products/:id', adminController.updateProduct);
 router.patch('/products/:id', adminController.updateProduct);
 router.delete('/products/:id', adminController.deleteProduct);
 

@@ -84,21 +84,26 @@ const createProduct = async (req, res, next) => {
 
     const productStatus = status || 'DRAFT';
     const numPrice = parseFloat(price);
-    const numDiscount = discount_price ? parseFloat(discount_price) : null;
+    const numDiscount = (discount_price !== undefined && discount_price !== null && discount_price !== '') 
+      ? parseFloat(discount_price) 
+      : null;
     const numStock = stock ? parseInt(stock) : 0;
+    const validCategoryId = (category_id && typeof category_id === 'string' && category_id.trim().length === 36)
+      ? category_id.trim()
+      : '11111111-1111-1111-1111-111111111111';
 
     const { data: product, error } = await supabase
       .from('products')
       .insert([{
-        name,
-        brand: brand || 'CycleCare',
-        description,
-        category_id,
+        name: name.trim(),
+        brand: brand ? brand.trim() : 'CycleCare',
+        description: description ? description.trim() : null,
+        category_id: validCategoryId,
         price: numPrice,
         discount_price: numDiscount,
         stock: numStock,
-        low_stock_threshold: low_stock_threshold || 5,
-        sku,
+        low_stock_threshold: low_stock_threshold ? parseInt(low_stock_threshold) : 5,
+        sku: sku.trim(),
         status: productStatus,
         tags: tags || [],
         is_featured: !!is_featured,
@@ -113,47 +118,66 @@ const createProduct = async (req, res, next) => {
 
     // Insert Images if provided
     if (images && Array.isArray(images) && images.length > 0) {
-      const imgInserts = images.map((img, idx) => ({
-        product_id: product.id,
-        image_url: typeof img === 'string' ? img : img.url,
-        is_main: idx === 0,
-        sort_order: idx
-      }));
-      await supabase.from('product_images').insert(imgInserts);
+      const validImages = images.filter(img => typeof img === 'string' ? img.trim().length > 0 : (img && img.url));
+      if (validImages.length > 0) {
+        const imgInserts = validImages.map((img, idx) => ({
+          product_id: product.id,
+          image_url: typeof img === 'string' ? img.trim() : img.url,
+          is_main: idx === 0,
+          sort_order: idx
+        }));
+        try {
+          await supabase.from('product_images').insert(imgInserts);
+        } catch (imgErr) {
+          console.warn('Image insert notice:', imgErr.message);
+        }
+      }
     }
 
     // Insert Variants if provided
     if (variants && Array.isArray(variants) && variants.length > 0) {
-      const variantInserts = variants.map(v => ({
-        product_id: product.id,
-        variant_name: v.variant_name || v.name,
-        size: v.size || null,
-        sku: v.sku || `${sku}-${v.size || Math.random().toString(36).substring(7)}`,
-        price: v.price || numPrice,
-        stock: v.stock || numStock,
-        is_active: true
-      }));
-      await supabase.from('product_variants').insert(variantInserts);
+      try {
+        const variantInserts = variants.map(v => ({
+          product_id: product.id,
+          variant_name: v.variant_name || v.name,
+          size: v.size || null,
+          sku: v.sku || `${sku}-${v.size || Math.random().toString(36).substring(7)}`,
+          price: v.price || numPrice,
+          stock: v.stock || numStock,
+          is_active: true
+        }));
+        await supabase.from('product_variants').insert(variantInserts);
+      } catch (varErr) {
+        console.warn('Variants insert notice:', varErr.message);
+      }
     }
 
-    // Initial Inventory Movement
-    await supabase.from('inventory_movements').insert([{
-      product_id: product.id,
-      movement_type: 'ADD',
-      quantity: numStock,
-      previous_stock: 0,
-      new_stock: numStock,
-      reason: 'Initial Product Creation',
-      actor_id: getActorId(req.user)
-    }]);
+    // Initial Inventory Movement (non-fatal)
+    try {
+      await supabase.from('inventory_movements').insert([{
+        product_id: product.id,
+        movement_type: 'ADD',
+        quantity: numStock,
+        previous_stock: 0,
+        new_stock: numStock,
+        reason: 'Initial Product Creation',
+        actor_id: getActorId(req.user)
+      }]);
+    } catch (e) {
+      console.warn('Inventory movement log notice:', e.message);
+    }
 
-    // Product Activity Log
-    await supabase.from('product_activity_logs').insert([{
-      product_id: product.id,
-      actor_id: getActorId(req.user),
-      action: 'PRODUCT_CREATED',
-      new_value: { status: productStatus, price: numPrice, stock: numStock }
-    }]);
+    // Product Activity Log (non-fatal)
+    try {
+      await supabase.from('product_activity_logs').insert([{
+        product_id: product.id,
+        actor_id: getActorId(req.user),
+        action: 'PRODUCT_CREATED',
+        new_value: { status: productStatus, price: numPrice, stock: numStock }
+      }]);
+    } catch (e) {
+      console.warn('Product activity log notice:', e.message);
+    }
 
     res.status(201).json({
       success: true,
@@ -169,42 +193,101 @@ const createProduct = async (req, res, next) => {
 const updateProduct = async (req, res, next) => {
   try {
     const productId = req.params.id;
-    const updates = req.body;
+    const {
+      name, brand, description, category_id, price, discount_price, stock,
+      low_stock_threshold, sku, status, tags, is_featured, is_new_arrival,
+      is_best_seller, is_active, images
+    } = req.body;
 
     const { data: existing, error: fetchErr } = await supabase.from('products').select('*').eq('id', productId).single();
     if (fetchErr || !existing) return res.status(404).json({ success: false, message: 'Product not found' });
 
+    const updatePayload = {};
+    if (name !== undefined) updatePayload.name = name.trim();
+    if (brand !== undefined) updatePayload.brand = brand.trim();
+    if (description !== undefined) updatePayload.description = description ? description.trim() : null;
+    if (category_id !== undefined && category_id && category_id.trim().length === 36) {
+      updatePayload.category_id = category_id.trim();
+    }
+    if (price !== undefined) updatePayload.price = parseFloat(price);
+    if (discount_price !== undefined) {
+      updatePayload.discount_price = (discount_price !== null && discount_price !== '') ? parseFloat(discount_price) : null;
+    }
+    if (stock !== undefined) updatePayload.stock = parseInt(stock) || 0;
+    if (low_stock_threshold !== undefined) updatePayload.low_stock_threshold = parseInt(low_stock_threshold) || 5;
+    if (sku !== undefined) updatePayload.sku = sku.trim();
+    if (status !== undefined) {
+      updatePayload.status = status;
+      if (status === 'ARCHIVED' || status === 'UNPUBLISHED') {
+        updatePayload.is_active = false;
+      } else if (status === 'PUBLISHED') {
+        updatePayload.is_active = true;
+      }
+    }
+    if (tags !== undefined) updatePayload.tags = tags;
+    if (is_featured !== undefined) updatePayload.is_featured = !!is_featured;
+    if (is_new_arrival !== undefined) updatePayload.is_new_arrival = !!is_new_arrival;
+    if (is_best_seller !== undefined) updatePayload.is_best_seller = !!is_best_seller;
+    if (is_active !== undefined) updatePayload.is_active = !!is_active;
+
+    updatePayload.updated_at = new Date();
+
     // Handle stock difference
-    if (updates.stock !== undefined && updates.stock !== existing.stock) {
-      const newStock = parseInt(updates.stock);
-      const diff = newStock - existing.stock;
-      await supabase.from('inventory_movements').insert([{
-        product_id: productId,
-        movement_type: diff > 0 ? 'ADD' : 'REMOVE',
-        quantity: Math.abs(diff),
-        previous_stock: existing.stock,
-        new_stock: newStock,
-        reason: 'Admin Manual Stock Adjustment',
-        actor_id: getActorId(req.user)
-      }]);
+    if (updatePayload.stock !== undefined && updatePayload.stock !== existing.stock) {
+      const diff = updatePayload.stock - existing.stock;
+      try {
+        await supabase.from('inventory_movements').insert([{
+          product_id: productId,
+          movement_type: diff > 0 ? 'ADD' : 'REMOVE',
+          quantity: Math.abs(diff),
+          previous_stock: existing.stock,
+          new_stock: updatePayload.stock,
+          reason: 'Admin Manual Stock Adjustment',
+          actor_id: getActorId(req.user)
+        }]);
+      } catch (e) {
+        console.warn('Inventory movement update notice:', e.message);
+      }
     }
 
     const { data: updated, error } = await supabase
       .from('products')
-      .update({ ...updates, updated_at: new Date() })
+      .update(updatePayload)
       .eq('id', productId)
-      .select()
+      .select('*, categories(name), product_images(*)')
       .single();
 
     if (error) throw error;
 
-    await supabase.from('product_activity_logs').insert([{
-      product_id: productId,
-      actor_id: getActorId(req.user),
-      action: 'PRODUCT_UPDATED',
-      old_value: existing,
-      new_value: updated
-    }]);
+    // Handle images update if provided
+    if (images && Array.isArray(images) && images.length > 0) {
+      const validImages = images.filter(img => typeof img === 'string' ? img.trim().length > 0 : (img && img.url));
+      if (validImages.length > 0) {
+        try {
+          await supabase.from('product_images').delete().eq('product_id', productId);
+          const imgInserts = validImages.map((img, idx) => ({
+            product_id: productId,
+            image_url: typeof img === 'string' ? img.trim() : img.url,
+            sort_order: idx
+          }));
+          await supabase.from('product_images').insert(imgInserts);
+        } catch (imgErr) {
+          console.warn('Images update notice:', imgErr.message);
+        }
+      }
+    }
+
+    try {
+      await supabase.from('product_activity_logs').insert([{
+        product_id: productId,
+        actor_id: getActorId(req.user),
+        action: 'PRODUCT_UPDATED',
+        old_value: existing,
+        new_value: updated
+      }]);
+    } catch (e) {
+      console.warn('Product activity log notice:', e.message);
+    }
 
     res.json({ success: true, message: 'Product updated successfully', product: updated });
   } catch (err) {

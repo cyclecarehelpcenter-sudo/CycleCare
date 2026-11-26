@@ -252,6 +252,7 @@
         .btn-action-unpub { background: #F1F5F9; color: #475569; }
         .btn-action-notify { background: #FCE4EC; color: #C2185B; }
         .btn-action-del { background: #FEE2E2; color: #DC2626; }
+        .btn-action-edit { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
         .btn-action-sm:hover { opacity: 0.85; }
 
         /* Modal */
@@ -348,9 +349,9 @@
             <!-- Add New Product Form -->
             <div class="card">
                 <div class="card-title">
-                    <span>➕ Add / Manage Store Item</span>
+                    <span id="formCardTitle">➕ Add / Manage Store Item</span>
                 </div>
-                <p style="font-size: 12px; color: var(--subtext); margin-top: -10px; margin-bottom: 16px;">
+                <p id="formCardSub" style="font-size: 12px; color: var(--subtext); margin-top: -10px; margin-bottom: 16px;">
                     Save as Draft to preview, or Publish directly with optional push notifications!
                 </p>
                 <form id="productForm">
@@ -417,7 +418,7 @@
                         <textarea id="prodDesc" rows="3" placeholder="Brief details about comfort and benefits..."></textarea>
                     </div>
 
-                    <div class="btn-actions-row">
+                    <div class="btn-actions-row" id="formButtonsRow">
                         <button type="button" class="btn-draft" onclick="submitProduct('DRAFT')">💾 Save Draft</button>
                         <button type="button" class="btn-publish" onclick="openPublishModalFromForm()">🚀 Publish &amp; Notify</button>
                     </div>
@@ -943,7 +944,13 @@
             try {
                 const res = await apiFetch('/api/v1/admin/users');
                 if (!res.ok) {
-                    const msg = res.status === 401 ? 'Unauthorized (401) — Invalid Admin Secret Key' : 'Server error (' + res.status + ')';
+                    const msg = res.status === 401 
+                        ? 'Unauthorized (401) — Invalid Admin Secret Key' 
+                        : (res.status === 429 
+                            ? 'Rate limit exceeded (429) — Please wait a moment' 
+                            : (res.status === 500 
+                                ? 'Server error (500) — Database unreachable or Supabase project paused' 
+                                : 'Server error (' + res.status + ')'));
                     if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ ${msg} <button class="btn-action-sm" onclick="loadUsers()" style="margin-left:8px;">Retry</button></td></tr>`;
                     return;
                 }
@@ -1107,7 +1114,13 @@
             try {
                 const res = await apiFetch('/api/v1/admin/chat-logs');
                 if (!res.ok) {
-                    const msg = res.status === 401 ? 'Unauthorized (401) — Invalid Admin Secret Key' : 'Server error (' + res.status + ')';
+                    const msg = res.status === 401 
+                        ? 'Unauthorized (401) — Invalid Admin Secret Key' 
+                        : (res.status === 429 
+                            ? 'Rate limit exceeded (429) — Please wait a moment' 
+                            : (res.status === 500 
+                                ? 'Server error (500) — Database unreachable or Supabase project paused' 
+                                : 'Server error (' + res.status + ')'));
                     if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ ${msg} <button class="btn-action-sm" onclick="loadChatLogs()" style="margin-left:8px;">Retry</button></td></tr>`;
                     return;
                 }
@@ -1152,7 +1165,13 @@
             try {
                 const res = await apiFetch('/api/v1/admin/products');
                 if (!res.ok) {
-                    const msg = res.status === 401 ? 'Unauthorized (401) — Invalid Admin Secret Key' : 'Server error (' + res.status + ')';
+                    const msg = res.status === 401 
+                        ? 'Unauthorized (401) — Invalid Admin Secret Key' 
+                        : (res.status === 429 
+                            ? 'Rate limit exceeded (429) — Please wait a moment' 
+                            : (res.status === 500 
+                                ? 'Server error (500) — Database unreachable or Supabase project paused' 
+                                : 'Server error (' + res.status + ')'));
                     if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ ${msg} <button class="btn-action-sm" onclick="loadInventory()" style="margin-left:8px;">Retry</button></td></tr>`;
                     return;
                 }
@@ -1226,6 +1245,7 @@
                         </td>
                         <td>${statusBadge}</td>
                         <td>
+                            <button class="btn-action-sm btn-action-edit" onclick="startEditProduct('${p.id}')">✏️ Edit</button>
                             ${!isLive ? `
                                 <button class="btn-action-sm btn-action-pub" onclick="openPublishModalForExisting('${p.id}', '${p.name.replace(/'/g, "\\'")}', '${p.discount_price || p.price}')">🚀 Publish</button>
                             ` : `
@@ -1283,6 +1303,100 @@
                 }
             } catch(e) {
                 showToast('Network error saving product', 'error');
+            }
+        }
+
+        let editingProductId = null;
+
+        function startEditProduct(id) {
+            const p = allProductsCache.find(x => String(x.id) === String(id));
+            if (!p) {
+                showToast('Product not found in cache', 'error');
+                return;
+            }
+            editingProductId = id;
+
+            // Populate form fields
+            const selCat = document.getElementById('prodCategory');
+            if (p.category_id && selCat) selCat.value = p.category_id;
+            document.getElementById('prodName').value = p.name || '';
+            document.getElementById('prodBrand').value = p.brand || 'CycleCare';
+            document.getElementById('prodPrice').value = p.price || '';
+            document.getElementById('prodDiscountPrice').value = p.discount_price || '';
+            document.getElementById('prodStock').value = p.stock !== undefined ? p.stock : 50;
+            document.getElementById('prodSku').value = p.sku || '';
+
+            const img = (p.product_images && p.product_images[0]?.image_url) || p.image_url || '';
+            document.getElementById('prodImageUrl').value = img;
+            updateImagePreview(img);
+
+            document.getElementById('prodNewArrival').checked = !!p.is_new_arrival;
+            document.getElementById('prodFeatured').checked = !!p.is_featured;
+            document.getElementById('prodBestSeller').checked = !!p.is_best_seller;
+            document.getElementById('prodDesc').value = p.description || '';
+
+            // Update header & buttons
+            const titleEl = document.getElementById('formCardTitle');
+            const subEl = document.getElementById('formCardSub');
+            if (titleEl) titleEl.innerHTML = `✏️ Edit Item: <span style="color:var(--primary);">${p.name}</span>`;
+            if (subEl) subEl.innerText = `Editing product SKU: ${p.sku || id}. Save changes to update live in Store.`;
+
+            const btnRow = document.getElementById('formButtonsRow');
+            if (btnRow) {
+                btnRow.innerHTML = `
+                    <button type="button" class="btn-publish" onclick="saveEditedProduct()">💾 Save Changes</button>
+                    <button type="button" class="btn-draft" onclick="cancelEditProduct()" style="background:#F1F5F9; color:#475569;">❌ Cancel Edit</button>
+                `;
+            }
+
+            const formCard = document.getElementById('productForm');
+            if (formCard) formCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showToast(`Editing "${p.name}"`, 'success');
+        }
+
+        function cancelEditProduct() {
+            editingProductId = null;
+            document.getElementById('productForm').reset();
+            updateImagePreview('');
+
+            const titleEl = document.getElementById('formCardTitle');
+            const subEl = document.getElementById('formCardSub');
+            if (titleEl) titleEl.innerText = '➕ Add / Manage Store Item';
+            if (subEl) subEl.innerText = 'Save as Draft to preview, or Publish directly with optional push notifications!';
+
+            const btnRow = document.getElementById('formButtonsRow');
+            if (btnRow) {
+                btnRow.innerHTML = `
+                    <button type="button" class="btn-draft" onclick="submitProduct('DRAFT')">💾 Save Draft</button>
+                    <button type="button" class="btn-publish" onclick="openPublishModalFromForm()">🚀 Publish &amp; Notify</button>
+                `;
+            }
+        }
+
+        async function saveEditedProduct() {
+            if (!editingProductId) return;
+            const data = getFormData();
+            if (!data.name || isNaN(data.price) || !data.sku) {
+                showToast('Please enter Product Name, Price, and SKU!', 'error');
+                return;
+            }
+
+            try {
+                const res = await apiFetch(`/api/v1/products/${editingProductId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await res.json();
+                if (result.success) {
+                    showToast('🎉 Product updated successfully!', 'success');
+                    cancelEditProduct();
+                    loadAll();
+                } else {
+                    showToast('Error: ' + (result.message || 'Update failed'), 'error');
+                }
+            } catch(e) {
+                showToast('Network error updating product', 'error');
             }
         }
 
@@ -1443,7 +1557,13 @@
             try {
                 const res = await apiFetch('/api/v1/admin/deliveries');
                 if (!res.ok) {
-                    const msg = res.status === 401 ? 'Unauthorized (401) — Invalid Admin Secret Key' : 'Server error (' + res.status + ')';
+                    const msg = res.status === 401 
+                        ? 'Unauthorized (401) — Invalid Admin Secret Key' 
+                        : (res.status === 429 
+                            ? 'Rate limit exceeded (429) — Please wait a moment' 
+                            : (res.status === 500 
+                                ? 'Server error (500) — Database unreachable or Supabase project paused' 
+                                : 'Server error (' + res.status + ')'));
                     if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ ${msg} <button class="btn-action-sm" onclick="loadDeliveries()" style="margin-left:8px;">Retry</button></td></tr>`;
                     return;
                 }
@@ -1585,7 +1705,13 @@
             try {
                 const res = await apiFetch('/api/v1/admin/orders');
                 if (!res.ok) {
-                    const msg = res.status === 401 ? 'Unauthorized (401) — Invalid Admin Secret Key' : 'Server error (' + res.status + ')';
+                    const msg = res.status === 401 
+                        ? 'Unauthorized (401) — Invalid Admin Secret Key' 
+                        : (res.status === 429 
+                            ? 'Rate limit exceeded (429) — Please wait a moment' 
+                            : (res.status === 500 
+                                ? 'Server error (500) — Database unreachable or Supabase project paused' 
+                                : 'Server error (' + res.status + ')'));
                     if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color: var(--danger);">⚠️ ${msg} <button class="btn-action-sm" onclick="loadOrders()" style="margin-left:8px;">Retry</button></td></tr>`;
                     return;
                 }

@@ -12,9 +12,10 @@ const connectionString = process.env.DATABASE_URL ||
 
 const pool = new Pool({
   connectionString,
+  ssl: { rejectUnauthorized: false },
   max: 15,
-  idleTimeoutMillis: 2000,
-  connectionTimeoutMillis: 15000,
+  idleTimeoutMillis: 5000,
+  connectionTimeoutMillis: 20000,
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000
 });

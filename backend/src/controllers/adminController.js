@@ -289,8 +289,8 @@ const createProduct = async (req, res, next) => {
 
     const sql = `
       INSERT INTO products (
-        category_id, name, brand, description, price, discount_price, stock, sku, status, is_active, image_url, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, $10, NOW(), NOW())
+        category_id, name, brand, description, price, discount_price, stock, sku, status, is_active, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, true, NOW(), NOW())
       RETURNING *
     `;
     const insRes = await pool.query(sql, [
@@ -302,24 +302,31 @@ const createProduct = async (req, res, next) => {
       numDiscount,
       numStock,
       sku.trim(),
-      productStatus,
-      imgUrl
+      productStatus
     ]);
 
     const product = insRes.rows[0];
 
     if (imgUrl) {
-      await pool.query(
-        'INSERT INTO product_images (product_id, image_url, sort_order, is_main, is_thumbnail) VALUES ($1, $2, 0, true, true)',
-        [product.id, imgUrl]
-      );
+      try {
+        await pool.query(
+          'INSERT INTO product_images (product_id, image_url, sort_order, is_main, is_thumbnail) VALUES ($1, $2, 0, true, true)',
+          [product.id, imgUrl]
+        );
+      } catch (imgErr) {
+        console.warn('Image insert notice:', imgErr.message);
+      }
     }
 
-    // Inventory movement
-    await pool.query(
-      'INSERT INTO inventory_movements (product_id, movement_type, quantity, previous_stock, new_stock, reason, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())',
-      [product.id, 'ADD', numStock, 0, numStock, 'Initial Product Stock']
-    );
+    // Inventory movement (non-fatal)
+    try {
+      await pool.query(
+        'INSERT INTO inventory_movements (product_id, movement_type, quantity, previous_stock, new_stock, reason, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())',
+        [product.id, 'ADD', numStock, 0, numStock, 'Initial Product Stock']
+      );
+    } catch (invErr) {
+      console.warn('Inventory movement log notice:', invErr.message);
+    }
 
     res.status(201).json({ success: true, message: 'Product created successfully', product });
   } catch (err) {
@@ -342,9 +349,11 @@ const updateProduct = async (req, res, next) => {
     if (name !== undefined) { vals.push(name.trim()); updates.push(`name = $${vals.length}`); }
     if (brand !== undefined) { vals.push(brand.trim()); updates.push(`brand = $${vals.length}`); }
     if (description !== undefined) { vals.push(description.trim()); updates.push(`description = $${vals.length}`); }
-    if (category_id !== undefined) { vals.push(category_id); updates.push(`category_id = $${vals.length}`); }
+    if (category_id !== undefined && category_id && category_id.trim().length === 36) {
+      vals.push(category_id.trim()); updates.push(`category_id = $${vals.length}`);
+    }
     if (price !== undefined) { vals.push(parseFloat(price)); updates.push(`price = $${vals.length}`); }
-    if (discount_price !== undefined) { vals.push(discount_price ? parseFloat(discount_price) : null); updates.push(`discount_price = $${vals.length}`); }
+    if (discount_price !== undefined) { vals.push((discount_price !== null && discount_price !== '') ? parseFloat(discount_price) : null); updates.push(`discount_price = $${vals.length}`); }
     if (sku !== undefined) { vals.push(sku.trim()); updates.push(`sku = $${vals.length}`); }
     if (status !== undefined) { vals.push(status); updates.push(`status = $${vals.length}`); }
     if (is_active !== undefined) { vals.push(is_active); updates.push(`is_active = $${vals.length}`); }
@@ -355,15 +364,26 @@ const updateProduct = async (req, res, next) => {
       vals.push(newStock);
       updates.push(`stock = $${vals.length}`);
 
-      await pool.query(
-        'INSERT INTO inventory_movements (product_id, movement_type, quantity, previous_stock, new_stock, reason, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())',
-        [productId, diff > 0 ? 'ADD' : 'REMOVE', Math.abs(diff), existing.stock, newStock, 'Admin Manual Adjustment']
-      );
+      try {
+        await pool.query(
+          'INSERT INTO inventory_movements (product_id, movement_type, quantity, previous_stock, new_stock, reason, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())',
+          [productId, diff > 0 ? 'ADD' : 'REMOVE', Math.abs(diff), existing.stock, newStock, 'Admin Manual Adjustment']
+        );
+      } catch (invErr) {
+        console.warn('Inventory movement adjustment notice:', invErr.message);
+      }
     }
 
-    if (images && images.length > 0) {
-      vals.push(images[0]);
-      updates.push(`image_url = $${vals.length}`);
+    if (images && images.length > 0 && images[0]) {
+      try {
+        await pool.query('DELETE FROM product_images WHERE product_id = $1', [productId]);
+        await pool.query(
+          'INSERT INTO product_images (product_id, image_url, sort_order, is_main, is_thumbnail) VALUES ($1, $2, 0, true, true)',
+          [productId, images[0]]
+        );
+      } catch (imgErr) {
+        console.warn('Image update notice:', imgErr.message);
+      }
     }
 
     updates.push('updated_at = NOW()');
